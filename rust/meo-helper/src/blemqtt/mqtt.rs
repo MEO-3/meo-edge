@@ -25,7 +25,7 @@ impl Default for BleMqttConfig {
         Self {
             broker_host: "localhost".to_string(),
             broker_port: 1883,
-            client_id: "meo-3-neo-ble-service".to_string(),
+            client_id: "meo-helper".to_string(),
             qos: QoS::AtLeastOnce,
         }
     }

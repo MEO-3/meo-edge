@@ -123,7 +123,7 @@ After a successful Wi-Fi join, firmware uses the stored host and port to connect
 
 MEO devices no longer ship a per-product "device profile" or capability catalog. Instead, a device exposes what it can do through a **fixed, generic command catalog** shared by both sides:
 
-- Firmware: `meo-3-arduino/lib/meo/define/Meo3_Cmd.h`
+- Firmware: `meo-arduino/lib/meo/define/Meo3_Cmd.h`
 - Gateway: `org.thingai.app.meo.define.MeoCmd`
 
 The two are kept in sync value-for-value, so a command means the same thing on both ends without a per-product translation table. The catalog has generic command verbs (`READ`, `WRITE`, `EXECUTE`, `EXECUTE_WITH_VAR`, `STOP`) and typed read/write targets (for example `READ_TEMP`, `READ_CO2`, `WRITE_LED`, `WRITE_SERVO`). A maker binds a new device to these existing constants rather than defining and registering a new product, so no profile import step is needed.

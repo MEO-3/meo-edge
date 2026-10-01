@@ -1,11 +1,11 @@
-# MEO Open Service — Docs Index
+# MEO Edge — Docs Index
 
 ## Current
 
 | Doc | Covers |
 | --- | --- |
 | [`project_specs.md`](project_specs.md) | Project vision, goals, UI/UX direction, open questions. Titled "(Depricated)" in the file itself, but `AGENTS.md` treats it as a living, authoritative doc — read that tag as "may change," not "unused." |
-| [`firmware_development_guide.md`](firmware_development_guide.md) | BLE provisioning contract (GATT service/characteristics, Wi-Fi handoff, capability reporting). Same "(Depricated)" caveat as above — it's the authoritative source of truth, referenced from both `meo-3-arduino` and this service. |
+| [`firmware_development_guide.md`](firmware_development_guide.md) | BLE provisioning contract (GATT service/characteristics, Wi-Fi handoff, capability reporting). Same "(Depricated)" caveat as above — it's the authoritative source of truth, referenced from both `meo-arduino` and this service. |
 | [`mqtt_messaging.md`](mqtt_messaging.md) | Runtime device MQTT contract: command/reply/event binary frames, topics, delivery rules. |
 | [`http_api.md`](http_api.md) | HTTP API reference: devices CRUD, provisioning steps, device control. |
 

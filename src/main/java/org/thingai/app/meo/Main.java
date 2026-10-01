@@ -17,7 +17,7 @@ public class Main {
             config.registerPlugin(new OpenApiPlugin(openApiConfig -> openApiConfig
                     .withDocumentationPath("/openapi.json")
                     .withDefinitionConfiguration((version, definition) -> definition
-                            .info(info -> info.title("MEO Open Service API").version("v1")))));
+                            .info(info -> info.title("MEO Edge API").version("v1")))));
             config.registerPlugin(new SwaggerPlugin(ui -> ui.withDocumentationPath("/openapi.json")));
             new Route(config, meoService.deviceHandler(), meoService.provisionHandler(),
                     meoService.controlHandler()).addRoutes();

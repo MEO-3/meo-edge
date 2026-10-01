@@ -1,4 +1,4 @@
-# MEO Open Service — HTTP API
+# MEO Edge — HTTP API
 
 Base URL: `http://<gateway>:7070` (port from `MEO_SERVICE_PORT`, default `7070`). All request and
 response bodies are JSON. CORS is open (any host).

@@ -2,7 +2,7 @@
 
 This package contains the Java MQTT v5 client for the generic `blemqtt` protocol.
 
-The Java open service should use `BlemqttClient` to talk to the Rust BLE service over MQTT. Java does not call BLE or BlueZ directly.
+The Java edge service should use `BlemqttClient` to talk to the Rust BLE service over MQTT. Java does not call BLE or BlueZ directly.
 
 ## Topics
 
@@ -95,7 +95,7 @@ The future fails if the request times out.
 
 ```text
 brokerUrl = tcp://localhost:1883
-clientId = meo-open-service-blemqtt
+clientId = meo-edge-blemqtt
 qos = 1
 requestTimeoutMillis = 15000
 ```

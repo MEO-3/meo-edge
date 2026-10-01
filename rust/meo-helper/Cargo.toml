@@ -1,5 +1,5 @@
 [package]
-name = "meo-3-neo-ble-service"
+name = "meo-helper"
 version = "0.1.0"
 edition = "2024"
 

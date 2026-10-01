@@ -6,7 +6,7 @@
 
 MEO 3, short for Make Everything Online, is an IoT project for STEAM education. It explores how IoT-enabled hardware and software can be delivered in a way that is easy to use, customizable, and friendly for children.
 
-This repository contains the open service layer. The current direction is to pair the service with Node-RED so devices, automations, and learning activities can be created with less code. The service is expected to run locally on gateway-style hardware and act as a bridge between MEO-compatible devices, automation tools, and future user interfaces.
+This repository contains the edge service layer. The current direction is to pair the service with Node-RED so devices, automations, and learning activities can be created with less code. The service is expected to run locally on gateway-style hardware and act as a bridge between MEO-compatible devices, automation tools, and future user interfaces.
 
 ## Goals
 

@@ -1,11 +1,11 @@
-# Makefile for the MEO open service.
+# Makefile for the MEO Edge.
 # Single entry point for building the Java service, the Rust BLE binary, and
 # the per-architecture release packages. Packaging itself is implemented as
 # Gradle tasks (see build.gradle.kts); this Makefile just wires the steps.
 
 GRADLE   ?= bash ./gradlew
 CARGO    ?= cargo
-BLE_DIR  := rust/meo-3-neo-ble-service
+BLE_DIR  := rust/meo-helper
 
 .PHONY: help compile test build clean \
         ble-x86 ble-arm package package-x86 package-arm dist
@@ -26,7 +26,7 @@ help:
 	@echo "  make package      Package both distributions"
 	@echo "  make dist         Build everything (Java + both BLE binaries) and package"
 	@echo ""
-	@echo "Output: build/dist/meo-open-service-<arch>.tar.gz"
+	@echo "Output: build/dist/meo-edge-<arch>.tar.gz"
 
 # --- Java service -----------------------------------------------------------
 

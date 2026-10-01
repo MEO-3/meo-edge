@@ -53,17 +53,17 @@ tasks.test {
 // Rust BLE provisioning binary for that architecture. Node-RED is NOT bundled;
 // it lives in its own fork and the MQTT broker is a system dependency.
 //
-//   build/dist/meo-open-service-linux-x86_64.tar.gz
-//   build/dist/meo-open-service-linux-arm64.tar.gz
+//   build/dist/meo-edge-linux-x86_64.tar.gz
+//   build/dist/meo-edge-linux-arm64.tar.gz
 //
 // The Rust binaries must be built first (see the Makefile: `make ble-x86`,
 // `make ble-arm`). Each task looks up the binary lazily and fails with the
 // searched paths if it is missing.
 // ---------------------------------------------------------------------------
 
-val bleProjectDir = layout.projectDirectory.dir("rust/meo-3-neo-ble-service")
-val bleBinName = "meo-3-neo-ble-service"
-val packageRootDir = "meo-open-service"
+val bleProjectDir = layout.projectDirectory.dir("rust/meo-helper")
+val bleBinName = "meo-helper"
+val packageRootDir = "meo-edge"
 
 data class TargetDist(val name: String, val candidates: List<String>)
 
@@ -99,7 +99,7 @@ val packageTasks = targetDists.map { dist ->
         compression = Compression.GZIP
 
         // Java service distribution (bin/ launcher + lib/*.jar).
-        from(layout.buildDirectory.dir("install/meo-open-service")) {
+        from(layout.buildDirectory.dir("install/meo-edge")) {
             into(packageRootDir)
         }
 

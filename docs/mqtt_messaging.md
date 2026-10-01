@@ -197,7 +197,7 @@ Node-RED (`node-red-meo`):
 - Subscribes to the `event` wildcard on the same connection and decodes the event frame, so flows
   can react to what a device pushes (`meo-event`).
 
-Firmware (`meo-3-arduino`):
+Firmware (`meo-arduino`):
 
 - After Wi-Fi is up, connects to the broker, subscribes to its `command` topic, and dispatches
   commands to maker-registered capability handlers.

@@ -1,1 +1,1 @@
-rootProject.name = "meo-open-service"
+rootProject.name = "meo-edge"

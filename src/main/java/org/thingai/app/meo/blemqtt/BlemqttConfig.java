@@ -2,7 +2,7 @@ package org.thingai.app.meo.blemqtt;
 
 public class BlemqttConfig {
     private String brokerUrl = "tcp://localhost:1883";
-    private String clientId = "meo-open-service-blemqtt";
+    private String clientId = "meo-edge-blemqtt";
     private int qos = 1;
     private long requestTimeoutMillis = 15_000;
 

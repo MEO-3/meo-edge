@@ -1,4 +1,4 @@
-BIN := meo-3-neo-ble-service
+BIN := meo-helper
 TARGET ?= aarch64-unknown-linux-gnu
 CROSS ?= cross
 CARGO ?= cargo
