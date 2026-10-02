@@ -67,8 +67,7 @@ gatt.subscribe
 gatt.unsubscribe
 ```
 
-`gatt.read`, `gatt.write`, and `gatt.subscribe` accept an optional `encoding` of `utf8`
-(default) or `base64`; replies and notification payloads echo the encoding used.
+`gatt.read`, `gatt.write`, and `gatt.subscribe` accept an optional `encoding` of `utf8` (default) or `base64`; replies and notification payloads echo the encoding used.
 
 Other operations should return a structured `blemqtt.unsupported_op` error until their BLE backend is added.
 

@@ -1,10 +1,6 @@
 # Note for developers (Depricated)
 
-> **Archived.** This describes an early TCP-based device registration model
-> (`device_id`/`transmit_key` issued over port 8901) that predates and has been
-> fully superseded by the BLE provisioning + MQTT flow described in
-> `../project_specs.md` and `../firmware_development_guide.md`. Kept for
-> historical reference only — do not implement against this.
+> **Archived.** This describes an early TCP-based device registration model (`device_id`/`transmit_key` issued over port 8901) that predates and has been fully superseded by the BLE provisioning + MQTT flow described in `../project_specs.md` and `../firmware_development_guide.md`. Kept for historical reference only — do not implement against this.
 
 ## MEO Acronyms and philosophy
 

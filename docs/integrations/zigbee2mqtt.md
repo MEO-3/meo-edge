@@ -1,16 +1,10 @@
 # Zigbee2MQTT — Device Key Research
 
-> Research notes for a planned Zigbee2MQTT (z2m) bridge integration. Nothing here is implemented
-> yet — this is groundwork for the capability-mapping design.
+> Research notes for a planned Zigbee2MQTT (z2m) bridge integration. Nothing here is implemented yet — this is groundwork for the capability-mapping design.
 
 ## Headline finding: there is no fixed, universal key set
 
-Zigbee2MQTT does not publish a fixed schema. Each device publishes whatever its own `exposes`
-definition declares (visible per-device at `zigbee2mqtt/bridge/devices`, or on that device's page
-under zigbee2mqtt.io/devices/). The official docs are explicit about this: *"Each device produces
-a different JSON message. To see what your device publishes check the 'Exposes' section on the
-device page."* There is no guaranteed common key across all devices — not even `state`, since
-pure sensors never expose it.
+Zigbee2MQTT does not publish a fixed schema. Each device publishes whatever its own `exposes` definition declares (visible per-device at `zigbee2mqtt/bridge/devices`, or on that device's page under zigbee2mqtt.io/devices/). The official docs are explicit about this: *"Each device produces a different JSON message. To see what your device publishes check the 'Exposes' section on the device page."* There is no guaranteed common key across all devices — not even `state`, since pure sensors never expose it.
 
 That said, two properties are common enough in practice to treat as near-universal, with caveats:
 
@@ -19,8 +13,7 @@ That said, two properties are common enough in practice to treat as near-univers
 | `linkquality` | Virtually every device (radio diagnostic z2m attaches to outgoing messages) | Not documented as *guaranteed*; can be removed via `filtered_attributes` config. Treat as "expect it, don't depend on it." |
 | `battery` | All battery-powered devices (sensors, buttons, most non-mains devices) | Absent on mains-powered devices (bulbs, plugs, relays) |
 
-Everything else is category-specific. The key set has to be read from each device's declared
-`exposes` at pairing time — not assumed from a hardcoded table.
+Everything else is category-specific. The key set has to be read from each device's declared `exposes` at pairing time — not assumed from a hardcoded table.
 
 ## Common keys by device category
 
@@ -39,23 +32,15 @@ Everything else is category-specific. The key set has to be read from each devic
 
 ## Control (`/set`) syntax rules
 
-- **Full JSON**, one or more properties per publish: topic `zigbee2mqtt/FRIENDLY_NAME/set`, body
-  `{"state": "ON", "brightness": 200}`.
-- **Single-property shorthand**: publish a bare value (e.g. `ON`, no JSON) to
-  `zigbee2mqtt/FRIENDLY_NAME/set/state` — equivalent to the full-JSON form for that one property.
-- **Reading a value on demand**: publish `{"state": ""}` (empty value) to
-  `zigbee2mqtt/FRIENDLY_NAME/get`. The value itself then arrives on the normal state topic
-  (`zigbee2mqtt/FRIENDLY_NAME`), not as a reply on `/get`.
-- **`transition`**: an extra key (seconds, float) addable to any light-control payload — applies
-  uniformly to on/off, brightness, color_temp, and color changes: `{"brightness": 156, "transition": 3}`.
-- **Move/step** (relative adjustment, no explicit target): `{"brightness_step": 20}`,
-  `{"color_temp_move": ...}`.
+- **Full JSON**, one or more properties per publish: topic `zigbee2mqtt/FRIENDLY_NAME/set`, body `{"state": "ON", "brightness": 200}`.
+- **Single-property shorthand**: publish a bare value (e.g. `ON`, no JSON) to `zigbee2mqtt/FRIENDLY_NAME/set/state` — equivalent to the full-JSON form for that one property.
+- **Reading a value on demand**: publish `{"state": ""}` (empty value) to `zigbee2mqtt/FRIENDLY_NAME/get`. The value itself then arrives on the normal state topic (`zigbee2mqtt/FRIENDLY_NAME`), not as a reply on `/get`.
+- **`transition`**: an extra key (seconds, float) addable to any light-control payload — applies uniformly to on/off, brightness, color_temp, and color changes: `{"brightness": 156, "transition": 3}`.
+- **Move/step** (relative adjustment, no explicit target): `{"brightness_step": 20}`, `{"color_temp_move": ...}`.
 
 ## State (readings) are push-based
 
-Unlike MEO's native devices (which are read on demand), z2m
-publishes the **full current state** to `zigbee2mqtt/FRIENDLY_NAME` every time anything changes.
-There is no request/reply round trip for reads in normal operation.
+Unlike MEO's native devices (which are read on demand), z2m publishes the **full current state** to `zigbee2mqtt/FRIENDLY_NAME` every time anything changes. There is no request/reply round trip for reads in normal operation.
 
 ## Sources
 

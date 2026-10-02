@@ -69,9 +69,7 @@ Field rules:
 
 - `ssid` — required.
 - `password` — optional (open networks).
-- `brokerHost` — required. The gateway's LAN IPv4 address, filled in by the gateway itself
-  (auto-detected, never user input). A config without it must be rejected with a `failed` status
-  and message `broker host is required`, the same treatment as a missing SSID.
+- `brokerHost` — required. The gateway's LAN IPv4 address, filled in by the gateway itself (auto-detected, never user input). A config without it must be rejected with a `failed` status and message `broker host is required`, the same treatment as a missing SSID.
 - `brokerPort` — optional, defaults to `1883`.
 
 Provision status read or notify payload:
@@ -121,16 +119,13 @@ After a successful Wi-Fi join, firmware uses the stored host and port to connect
 
 ## Capability Reporting
 
-There is no shared catalog: a device defines its own caps by string key and reports them during
-provisioning, over the read-only capability characteristic. The gateway reads it right after the
-MAC and stores the list against the device.
+There is no shared catalog: a device defines its own caps by string key and reports them during provisioning, over the read-only capability characteristic. The gateway reads it right after the MAC and stores the list against the device.
 
 ```json
 { "model": "meo-weather-1", "fw": "1.2.0", "caps": ["temp", "led"] }
 ```
 
-- Keys match `[a-z0-9_]{1,32}` and are unique per device. A report that breaks these rules is
-  stored as no caps.
+- Keys match `[a-z0-9_]{1,32}` and are unique per device. A report that breaks these rules is stored as no caps.
 - Array position is the cap's `idx` on the wire, so order matters.
 - The list is captured only at provisioning: changing a device's caps means re-provisioning it.
 - The payload must fit one BLE attribute (512 bytes).
