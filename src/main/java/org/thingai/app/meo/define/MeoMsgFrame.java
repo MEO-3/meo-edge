@@ -56,7 +56,7 @@ public final class MeoMsgFrame {
         byte[] buf = new byte[SIZE];
         buf[0] = (byte) (type << 5 | seq);
         buf[1] = (byte) idx;
-        // Low 16 bits of a two's-complement int are its i16 encoding.
+
         ByteUtil.putU16LE(buf, 2, value);
         return buf;
     }
