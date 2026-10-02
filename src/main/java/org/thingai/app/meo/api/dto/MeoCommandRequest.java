@@ -1,17 +1,26 @@
 package org.thingai.app.meo.api.dto;
 
-// Request body for device control. The capability id encodes the action, so
-// there is no verb; value is only read for WRITE capabilities.
+// Request body for device control: read or write one device-defined cap.
+// value is an int16 and only used by writes.
 public class MeoCommandRequest {
-    private int cap;
+    private String cap;
+    private String op;
     private int value;
 
-    public int getCap() {
+    public String getCap() {
         return cap;
     }
 
-    public void setCap(int cap) {
+    public void setCap(String cap) {
         this.cap = cap;
+    }
+
+    public String getOp() {
+        return op;
+    }
+
+    public void setOp(String op) {
+        this.op = op;
     }
 
     public int getValue() {

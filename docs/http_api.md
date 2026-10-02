@@ -3,13 +3,6 @@
 Base URL: `http://<gateway>:7070` (port from `MEO_SERVICE_PORT`, default `7070`). All request and
 response bodies are JSON. CORS is open (any host).
 
-Interactive docs are served by the running service itself:
-
-| Path | Description |
-| --- | --- |
-| `/openapi.json` | OpenAPI 3 specification (generated from controller annotations) |
-| `/swagger` | Swagger UI for the spec above |
-
 ## Error model
 
 Failed requests return an HTTP error status with a `MeoErrorResponse` body. `errorCode` is a

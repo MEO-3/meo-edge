@@ -1,19 +1,18 @@
-package org.thingai.app.meo.messaging;
+package org.thingai.app.meo.handler.msg;
 
 /**
- * Device messaging topics (docs/mqtt_messaging.md). Not BlemqttTopics, which is
- * the internal channel to the Rust BLE service.
+ * Device messaging topics (docs/mqtt_messaging.md): down = edge → device, up = device → edge.
+ * Not BlemqttTopics, which is the internal channel to the Rust BLE service.
  */
 public final class MeoTopics {
     public static final String PREFIX = "meo/v1/device/";
-    public static final String REPLY_WILDCARD = PREFIX + "+/reply";
-    public static final String EVENT_WILDCARD = PREFIX + "+/event";
+    public static final String UP_WILDCARD = PREFIX + "+/up";
 
     private MeoTopics() {
     }
 
-    public static String command(String deviceId) {
-        return PREFIX + deviceId + "/command";
+    public static String down(String deviceId) {
+        return PREFIX + deviceId + "/down";
     }
 
     /** deviceId from a device topic; null when the topic does not match. */

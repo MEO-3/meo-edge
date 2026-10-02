@@ -1,16 +1,19 @@
-package org.thingai.app.meo.handler;
+package org.thingai.app.meo.handler.mngt;
 
 import org.thingai.app.meo.entity.MeoDevice;
-import org.thingai.app.meo.entity.MeoDeviceCapability;
+import org.thingai.app.meo.entity.MeoDeviceCap;
 import org.thingai.base.log.ILog;
 import org.thingai.base.dao.Dao;
 
-public class MeoDeviceHandler {
-    private static final String TAG = "MeoDeviceHandler";
+import java.util.Arrays;
+import java.util.Comparator;
+
+public class MeoMngtHandler {
+    private static final String TAG = "MeoMngtHandler";
 
     private final Dao dao;
 
-    public MeoDeviceHandler(Dao dao) {
+    public MeoMngtHandler(Dao dao) {
         this.dao = dao;
     }
 
@@ -28,7 +31,7 @@ public class MeoDeviceHandler {
     }
 
     // Only user metadata is updatable; identity (deviceId, macAddress) and
-    // firmware-reported fields (model, fwVersion, transportType) are owned by
+    // firmware-reported fields (model, fwVersion, transportType, caps) are owned by
     // the provisioning flow.
     public MeoDevice updateDevice(String deviceId, MeoDevice update) {
         MeoDevice existing = getDevice(deviceId);
@@ -37,7 +40,6 @@ public class MeoDeviceHandler {
         }
         existing.setName(update.getName());
         existing.setDescription(update.getDescription());
-        existing.setDeviceType(update.getDeviceType());
         dao.insertOrUpdate(existing);
         ILog.i(TAG, "updateDevice", "updated deviceId=" + deviceId);
         return existing;
@@ -49,20 +51,20 @@ public class MeoDeviceHandler {
             return null;
         }
         dao.delete(existing);
-        dao.deleteByColumn(MeoDeviceCapability.class, "deviceId", deviceId);
+        dao.deleteByColumn(MeoDeviceCap.class, "deviceId", deviceId);
         ILog.i(TAG, "deleteDevice", "deleted deviceId=" + deviceId);
         return existing;
     }
 
-    public int[] getCapabilities(String deviceId) {
-        MeoDeviceCapability[] rows = dao.query(MeoDeviceCapability.class, "deviceId", deviceId);
+    // Cap keys in wire order (index = idx); SQLite row order isn't guaranteed.
+    public String[] getCaps(String deviceId) {
+        MeoDeviceCap[] rows = dao.query(MeoDeviceCap.class, "deviceId", deviceId);
         if (rows == null) {
-            return new int[0];
+            return new String[0];
         }
-        int[] capabilities = new int[rows.length];
-        for (int i = 0; i < rows.length; i++) {
-            capabilities[i] = rows[i].getCapabilityId();
-        }
-        return capabilities;
+        return Arrays.stream(rows)
+                .sorted(Comparator.comparingInt(MeoDeviceCap::getIdx))
+                .map(MeoDeviceCap::getCap)
+                .toArray(String[]::new);
     }
 }

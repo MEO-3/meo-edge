@@ -1,22 +1,22 @@
 package org.thingai.app.meo.api;
 
 import io.javalin.config.JavalinConfig;
-import org.thingai.app.meo.api.controller.ControlController;
-import org.thingai.app.meo.api.controller.DeviceController;
-import org.thingai.app.meo.api.controller.ProvisionController;
-import org.thingai.app.meo.handler.MeoControlHandler;
-import org.thingai.app.meo.handler.MeoDeviceHandler;
-import org.thingai.app.meo.handler.MeoProvisionHandler;
+import org.thingai.app.meo.api.route.ControlRoute;
+import org.thingai.app.meo.api.route.DeviceRoute;
+import org.thingai.app.meo.api.route.ProvisionRoute;
+import org.thingai.app.meo.handler.control.MeoControlHandler;
+import org.thingai.app.meo.handler.mngt.MeoMngtHandler;
+import org.thingai.app.meo.handler.provision.MeoProvisionHandler;
 
-// Registers all HTTP routes. Endpoint logic lives in api/controller classes;
-// this class only wires handlers to controllers.
+// Registers all HTTP routes. Endpoint logic lives in api/route classes;
+// this class only wires handlers to them.
 public class Route {
     private final JavalinConfig config;
-    private final MeoDeviceHandler deviceHandler;
+    private final MeoMngtHandler deviceHandler;
     private final MeoProvisionHandler provisionHandler;
     private final MeoControlHandler controlHandler;
 
-    public Route(JavalinConfig config, MeoDeviceHandler deviceHandler,
+    public Route(JavalinConfig config, MeoMngtHandler deviceHandler,
                  MeoProvisionHandler provisionHandler, MeoControlHandler controlHandler) {
         this.config = config;
         this.deviceHandler = deviceHandler;
@@ -27,8 +27,8 @@ public class Route {
     public void addRoutes() {
         config.routes.get("/", ctx -> ctx.json("meow"));
 
-        new DeviceController(deviceHandler).addRoutes(config);
-        new ProvisionController(provisionHandler).addRoutes(config);
-        new ControlController(controlHandler).addRoutes(config);
+        new DeviceRoute(deviceHandler).addRoutes(config);
+        new ProvisionRoute(provisionHandler).addRoutes(config);
+        new ControlRoute(controlHandler).addRoutes(config);
     }
 }

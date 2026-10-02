@@ -14,8 +14,6 @@ public class MeoDevice {
     @DaoColumn
     private String macAddress;
     @DaoColumn
-    private int deviceType;
-    @DaoColumn
     private int transportType;
     // Device model, reported by firmware during provisioning.
     @DaoColumn
@@ -54,14 +52,6 @@ public class MeoDevice {
 
     public void setMacAddress(String macAddress) {
         this.macAddress = macAddress;
-    }
-
-    public int getDeviceType() {
-        return deviceType;
-    }
-
-    public void setDeviceType(int deviceType) {
-        this.deviceType = deviceType;
     }
 
     public int getTransportType() {

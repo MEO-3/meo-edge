@@ -21,6 +21,10 @@ public class ByteUtil {
              | ((buf[offset + 1] & 0xFF) << 8);
     }
 
+    public static int getI16LE(byte[] buf, int offset) {
+        return (short) getU16LE(buf, offset);
+    }
+
     public static int getI32LE(byte[] buf, int offset) {
         return (buf[offset] & 0xFF)
              | ((buf[offset + 1] & 0xFF) << 8)

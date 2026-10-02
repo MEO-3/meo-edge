@@ -18,4 +18,5 @@ public final class ErrorCode {
     public static int CONTROL_TIMEOUT = 302;
     // Command reached the device but it rejected or failed to run it.
     public static int CONTROL_DEVICE_ERROR = 303;
+    public static int CONTROL_OP_NOT_SUPPORTED = 304;
 }

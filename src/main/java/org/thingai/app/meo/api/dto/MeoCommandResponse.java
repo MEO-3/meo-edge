@@ -4,10 +4,10 @@ package org.thingai.app.meo.api.dto;
 // deviceId and cap so a caller firing several commands can tell them apart.
 public class MeoCommandResponse {
     private String deviceId;
-    private int cap;
-    private double value;
+    private String cap;
+    private int value;
 
-    public static MeoCommandResponse of(String deviceId, int cap, double value) {
+    public static MeoCommandResponse of(String deviceId, String cap, int value) {
         MeoCommandResponse view = new MeoCommandResponse();
         view.deviceId = deviceId;
         view.cap = cap;
@@ -19,11 +19,11 @@ public class MeoCommandResponse {
         return deviceId;
     }
 
-    public int getCap() {
+    public String getCap() {
         return cap;
     }
 
-    public double getValue() {
+    public int getValue() {
         return value;
     }
 }

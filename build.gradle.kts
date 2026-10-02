@@ -28,9 +28,6 @@ dependencies {
     implementation("com.google.code.gson:gson:2.13.2")
 
     implementation("io.javalin:javalin:7.2.2")
-    implementation("io.javalin.community.openapi:javalin-openapi-plugin:7.2.2")
-    implementation("io.javalin.community.openapi:javalin-swagger-plugin:7.2.2")
-    annotationProcessor("io.javalin.community.openapi:openapi-annotation-processor:7.2.2")
     implementation("org.jmdns:jmdns:3.5.12")
 
     implementation("com.zaxxer:HikariCP:5.1.0")

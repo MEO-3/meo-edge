@@ -1,4 +1,4 @@
-package org.thingai.app.meo.handler;
+package org.thingai.app.meo.handler.provision;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -16,8 +16,9 @@ import org.thingai.app.meo.define.ProvisionStatus;
 import org.thingai.app.meo.define.TransportType;
 import org.thingai.app.meo.api.dto.MeoDeviceResponse;
 import org.thingai.app.meo.entity.MeoDevice;
-import org.thingai.app.meo.entity.MeoDeviceCapability;
+import org.thingai.app.meo.entity.MeoDeviceCap;
 import org.thingai.app.meo.entity.MeoDeviceProvision;
+import org.thingai.app.meo.handler.msg.MeoFrame;
 import org.thingai.app.meo.callback.ProvisionEventListener;
 import org.thingai.app.meo.callback.RequestCallback;
 import org.thingai.app.meo.util.JsonUtil;
@@ -25,10 +26,13 @@ import org.thingai.app.meo.util.NetUtil;
 import org.thingai.base.dao.Dao;
 import org.thingai.base.log.ILog;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 // Gateway-led BLE provisioning. Methods block on blemqtt replies, except
 // setupDevice, which polls for the async gatt.notification Wi-Fi join event.
@@ -51,6 +55,8 @@ public class MeoProvisionHandler {
 
     // Mosquitto default port; broker host is the gateway's LAN IPv4, resolved per call.
     private static final int DEVICE_BROKER_PORT = 1883;
+    // Device-defined cap key: lowercase so keys can't clash by case, safe in topics/URLs.
+    private static final Pattern CAP_KEY = Pattern.compile("[a-z0-9_]{1,32}");
 
     private final BlemqttClient blemqttClient;
     private final Dao dao;
@@ -116,7 +122,7 @@ public class MeoProvisionHandler {
         return parsed != null ? parsed : new JsonObject[0];
     }
 
-    // Connects, reads identity/capabilities, and opens the session for setupDevice.
+    // Connects, reads identity/caps, and opens the session for setupDevice.
     // Reclaims any prior unfinished session first, since BLE is single-device.
     public synchronized void connect(String bleAddress, RequestCallback<MeoDeviceProvision> callback) {
         ILog.i(TAG, "connect", "bleAddress=" + bleAddress);
@@ -131,7 +137,7 @@ public class MeoProvisionHandler {
         try {
             bleConnect(provision);
             readMac(provision);
-            readCapabilities(provision);
+            readCaps(provision);
             updateStatus(provision, ProvisionStatus.STATUS_CONNECTED_BLE, "device connected");
             session = provision;
             callback.onResult(provision, "device connected");
@@ -180,7 +186,7 @@ public class MeoProvisionHandler {
         }
     }
 
-    // Persists the session's device + capability rows. Requires setupDevice to have
+    // Persists the session's device + cap rows. Requires setupDevice to have
     // completed (status = provisioned); clears the session on success.
     public synchronized void persistDevice(RequestCallback<MeoDeviceResponse> callback) {
         ILog.i(TAG, "persistDevice", addressLog(session));
@@ -196,9 +202,9 @@ public class MeoProvisionHandler {
         MeoDeviceProvision current = session;
         try {
             MeoDevice device = saveDevice(current);
-            persistCapabilities(device.getDeviceId(), current.getCapabilities());
+            persistCaps(device.getDeviceId(), current.getCaps());
             session = null;
-            MeoDeviceResponse response = MeoDeviceResponse.of(device, current.getCapabilities());
+            MeoDeviceResponse response = MeoDeviceResponse.of(device, current.getCaps());
             emit(EVENT_DEVICE_PERSISTED, response);
             callback.onResult(response, "device persisted");
         } catch (RuntimeException e) {
@@ -232,21 +238,23 @@ public class MeoProvisionHandler {
         return device;
     }
 
-    // Replaces capability rows (delete-all then insert) so re-provisioning refreshes, not accumulates.
-    private void persistCapabilities(String deviceId, int[] capabilities) {
-        dao.deleteByColumn(MeoDeviceCapability.class, "deviceId", deviceId);
-        if (capabilities == null || capabilities.length == 0) {
+    // Replaces cap rows (delete-all then insert) so re-provisioning refreshes, not accumulates.
+    // idx is the cap's position in the device report — its id on the binary wire.
+    private void persistCaps(String deviceId, String[] caps) {
+        dao.deleteByColumn(MeoDeviceCap.class, "deviceId", deviceId);
+        if (caps == null || caps.length == 0) {
             return;
         }
-        MeoDeviceCapability[] rows = new MeoDeviceCapability[capabilities.length];
-        for (int i = 0; i < capabilities.length; i++) {
-            MeoDeviceCapability row = new MeoDeviceCapability();
+        MeoDeviceCap[] rows = new MeoDeviceCap[caps.length];
+        for (int i = 0; i < caps.length; i++) {
+            MeoDeviceCap row = new MeoDeviceCap();
             row.setDeviceId(deviceId);
-            row.setCapabilityId(capabilities[i]);
+            row.setCap(caps[i]);
+            row.setIdx(i);
             rows[i] = row;
         }
         dao.insertBatch(rows);
-        ILog.i(TAG, "persistCapabilities", "deviceId=" + deviceId, "count=" + capabilities.length);
+        ILog.i(TAG, "persistCaps", "deviceId=" + deviceId, "count=" + caps.length);
     }
 
     // Sets status/message, then emits the session as a provision.status event.
@@ -285,9 +293,9 @@ public class MeoProvisionHandler {
         ILog.i(TAG, "readDeviceMac", "macAddress=" + mac);
     }
 
-    // Non-fatal: read/parse failure leaves an empty capability set — the device is
-    // still usable on Wi-Fi and re-provisioning refreshes it. Ids kept verbatim, unfiltered.
-    private void readCapabilities(MeoDeviceProvision provision) {
+    // Non-fatal: read/parse failure leaves an empty cap set — the device is still
+    // usable on Wi-Fi and re-provisioning refreshes it.
+    private void readCaps(MeoDeviceProvision provision) {
         updateStatus(provision, ProvisionStatus.STATUS_READING_CAPABILITIES, null);
         try {
             String raw = readReplyValue(sendBlocking(gattRead(provision, BleUuid.MEO_DEVICE_CAPABILITIES_CHAR)));
@@ -302,25 +310,35 @@ public class MeoProvisionHandler {
                 provision.setFwVersion(fw.getAsString());
             }
 
-            provision.setCapabilities(parseCapabilities(report.get("capabilities")));
-            ILog.i(TAG, "readCapabilities", "model=" + provision.getModel(),
-                    "fw=" + provision.getFwVersion(), "count=" + provision.getCapabilities().length);
+            provision.setCaps(parseCaps(report.get("caps")));
+            ILog.i(TAG, "readCaps", "model=" + provision.getModel(),
+                    "fw=" + provision.getFwVersion(), "count=" + provision.getCaps().length);
         } catch (RuntimeException e) {
-            provision.setCapabilities(new int[0]);
-            ILog.w(TAG, "readCapabilities", "failed; continuing with empty capabilities", e.getMessage());
+            provision.setCaps(new String[0]);
+            ILog.w(TAG, "readCaps", "failed; continuing with empty caps", e.getMessage());
         }
     }
 
-    private int[] parseCapabilities(JsonElement element) {
+    // Keys become topic/URL segments and array position is the wire idx, so a bad or
+    // duplicate key rejects the whole report rather than shifting the other indexes.
+    private String[] parseCaps(JsonElement element) {
         if (element == null || !element.isJsonArray()) {
-            return new int[0];
+            return new String[0];
         }
         JsonArray array = element.getAsJsonArray();
-        int[] capabilities = new int[array.size()];
-        for (int i = 0; i < array.size(); i++) {
-            capabilities[i] = array.get(i).getAsInt();
+        if (array.size() > MeoFrame.MAX_IDX + 1) {
+            throw new IllegalArgumentException("too many caps for a u8 idx: " + array.size());
         }
-        return capabilities;
+        String[] caps = new String[array.size()];
+        Set<String> seen = new HashSet<>();
+        for (int i = 0; i < array.size(); i++) {
+            String cap = array.get(i).getAsString();
+            if (!CAP_KEY.matcher(cap).matches() || !seen.add(cap)) {
+                throw new IllegalArgumentException("invalid or duplicate cap key: " + cap);
+            }
+            caps[i] = cap;
+        }
+        return caps;
     }
 
     private void subscribeStatus(MeoDeviceProvision provision) {

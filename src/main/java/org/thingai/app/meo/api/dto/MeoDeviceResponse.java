@@ -2,29 +2,27 @@ package org.thingai.app.meo.api.dto;
 
 import org.thingai.app.meo.entity.MeoDevice;
 
-// API read model: a device row with capability ids flattened to an int[]. Not persisted.
+// API read model: a device row with its cap keys in wire order. Not persisted.
 public class MeoDeviceResponse {
     private String deviceId;
     private String name;
     private String description;
     private String macAddress;
-    private int deviceType;
     private int transportType;
     private String model;
     private String fwVersion;
-    private int[] capabilities;
+    private String[] caps;
 
-    public static MeoDeviceResponse of(MeoDevice device, int[] capabilities) {
+    public static MeoDeviceResponse of(MeoDevice device, String[] caps) {
         MeoDeviceResponse view = new MeoDeviceResponse();
         view.deviceId = device.getDeviceId();
         view.name = device.getName();
         view.description = device.getDescription();
         view.macAddress = device.getMacAddress();
-        view.deviceType = device.getDeviceType();
         view.transportType = device.getTransportType();
         view.model = device.getModel();
         view.fwVersion = device.getFwVersion();
-        view.capabilities = capabilities != null ? capabilities : new int[0];
+        view.caps = caps != null ? caps : new String[0];
         return view;
     }
 
@@ -44,10 +42,6 @@ public class MeoDeviceResponse {
         return macAddress;
     }
 
-    public int getDeviceType() {
-        return deviceType;
-    }
-
     public int getTransportType() {
         return transportType;
     }
@@ -60,7 +54,7 @@ public class MeoDeviceResponse {
         return fwVersion;
     }
 
-    public int[] getCapabilities() {
-        return capabilities;
+    public String[] getCaps() {
+        return caps;
     }
 }

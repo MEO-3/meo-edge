@@ -6,7 +6,7 @@ This repository is the MEO 3 open edge service (the gateway "hub") for IoT educa
 
 - `Main.java` / `MeoService.java` — entry point; starts a Javalin HTTP server on `MEO_SERVICE_PORT` (default `7070`).
 - `api/` — Javalin route registration. Keep routes thin and delegate to handlers.
-- `handler/` — device and provisioning business logic (`MeoDeviceHandler`, `MeoProvisionHandler`), with `handler/callback/` for callback interfaces.
+- `handler/` — business logic, one subpackage per concern: `mngt/` (`MeoMngtHandler`, device registry), `provision/` (`MeoProvisionHandler`), `control/` (`MeoControlHandler`), `msg/` (device MQTT frames + topics). Callback interfaces live in `callback/`.
 - `blemqtt/` — MQTT client (`BlemqttClient`) that drives the Rust BLE service over the generic `blemqtt` protocol.
 - `transport/{ble,mqtt}/` — transport abstractions.
 - `define/` — UUIDs, enums, and shared constants (`BleUuid`, `MeoCmd`, `ProvisionStatus`, `TransportType`).
@@ -32,13 +32,13 @@ Runtime config: environment variables `MEO_SERVICE_PORT` and `MEO_DATA_DIR` (see
 
 ## Coding Style & Naming Conventions
 
-Java with 4-space indentation. Keep package names under `org.thingai.app.meo`. Follow existing class prefixes such as `Meo...` (`MeoService`, `MeoDeviceHandler`) and `Blemqtt...` (`BlemqttClient`, `BlemqttCommand`). API route classes stay thin and delegate business logic to `handler/` classes.
+Java with 4-space indentation. Keep package names under `org.thingai.app.meo`. Follow existing class prefixes such as `Meo...` (`MeoService`, `MeoMngtHandler`) and `Blemqtt...` (`BlemqttClient`, `BlemqttCommand`). API route classes stay thin and delegate business logic to `handler/` classes.
 
 Prefer explicit DTO/entity classes over raw JSON maps for stable service contracts. Keep comments short and useful, especially around hardware/BLE protocol details. Do not add per-product command names to `define/MeoCmd.java` — it is a fixed, generic command catalog kept in sync with the firmware's `Meo3_Cmd.h`.
 
 ## Testing Guidelines
 
-JUnit 5 is configured, but no tests are currently checked in. Add tests under `src/test/java`, mirroring the production package. Name tests `*Test.java`, for example `MeoDeviceHandlerTest.java`. Focus coverage on `blemqtt` command/reply handling, the provisioning flow, protocol parsing, and DAO-backed behavior.
+JUnit 5 is configured, but no tests are currently checked in. Add tests under `src/test/java`, mirroring the production package. Name tests `*Test.java`, for example `MeoMngtHandlerTest.java`. Focus coverage on `blemqtt` command/reply handling, the provisioning flow, protocol parsing, and DAO-backed behavior.
 
 ## Commit & Pull Request Guidelines
 

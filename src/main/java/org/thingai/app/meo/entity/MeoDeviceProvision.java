@@ -7,7 +7,7 @@ public class MeoDeviceProvision {
     private String macAddress;
     private String model;
     private String fwVersion;
-    private int[] capabilities;
+    private String[] caps;
     private String wifiSsid;
     private String provisionStatus;
     private int status = ProvisionStatus.STATUS_CREATED;
@@ -45,12 +45,12 @@ public class MeoDeviceProvision {
         this.fwVersion = fwVersion;
     }
 
-    public int[] getCapabilities() {
-        return capabilities;
+    public String[] getCaps() {
+        return caps;
     }
 
-    public void setCapabilities(int[] capabilities) {
-        this.capabilities = capabilities;
+    public void setCaps(String[] caps) {
+        this.caps = caps;
     }
 
     public String getWifiSsid() {

@@ -7,10 +7,10 @@ import org.eclipse.paho.mqttv5.client.persist.MemoryPersistence;
 import org.thingai.app.meo.blemqtt.BlemqttClient;
 import org.thingai.app.meo.blemqtt.BlemqttConfig;
 import org.thingai.app.meo.entity.MeoDevice;
-import org.thingai.app.meo.entity.MeoDeviceCapability;
-import org.thingai.app.meo.handler.MeoControlHandler;
-import org.thingai.app.meo.handler.MeoDeviceHandler;
-import org.thingai.app.meo.handler.MeoProvisionHandler;
+import org.thingai.app.meo.entity.MeoDeviceCap;
+import org.thingai.app.meo.handler.control.MeoControlHandler;
+import org.thingai.app.meo.handler.mngt.MeoMngtHandler;
+import org.thingai.app.meo.handler.provision.MeoProvisionHandler;
 import org.thingai.base.Service;
 import org.thingai.base.dao.Dao;
 import org.thingai.base.log.ILog;
@@ -27,7 +27,7 @@ public class MeoService extends Service {
     private Dao dao;
     private BlemqttClient blemqttClient;
     private MqttClient deviceMqttClient;
-    private MeoDeviceHandler deviceHandler;
+    private MeoMngtHandler deviceHandler;
     private MeoProvisionHandler provisionHandler;
     private MeoControlHandler controlHandler;
 
@@ -49,9 +49,9 @@ public class MeoService extends Service {
         dao = new DaoSqlite(appDir + "/meo.db");
         dao.initDao(new Class[]{
                 MeoDevice.class,
-                MeoDeviceCapability.class
+                MeoDeviceCap.class
         });
-        deviceHandler = new MeoDeviceHandler(dao);
+        deviceHandler = new MeoMngtHandler(dao);
 
         BlemqttConfig blemqttConfig = new BlemqttConfig();
         String broker = System.getenv("MEO_MQTT_BROKER");
@@ -107,7 +107,7 @@ public class MeoService extends Service {
         }
     }
 
-    public MeoDeviceHandler deviceHandler() {
+    public MeoMngtHandler deviceHandler() {
         return deviceHandler;
     }
 
