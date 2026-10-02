@@ -1,6 +1,7 @@
 package org.thingai.app.meo;
 
 import io.javalin.Javalin;
+import io.javalin.json.JavalinGson;
 import org.thingai.app.meo.api.Route;
 
 public class Main {
@@ -11,6 +12,7 @@ public class Main {
         meoService.init();
 
         Javalin.create(config -> {
+            config.jsonMapper(new JavalinGson());
             config.bundledPlugins.enableCors(cors -> cors.addRule(it -> it.anyHost()));
             new Route(config, meoService.deviceHandler(), meoService.provisionHandler(),
                     meoService.msgHandler()).addRoutes();
