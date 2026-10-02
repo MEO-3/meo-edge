@@ -18,7 +18,9 @@ repositories {
 }
 
 dependencies {
+    testImplementation(platform("org.junit:junit-bom:5.11.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
     implementation("org.xerial:sqlite-jdbc:3.43.2.0")
     implementation("org.slf4j:slf4j-api:2.0.9") // Logging interface of jdbc
@@ -42,7 +44,7 @@ dependencies {
 }
 
 tasks.test {
-
+    useJUnitPlatform()
 }
 
 // ---------------------------------------------------------------------------
