@@ -1,7 +1,7 @@
 package org.thingai.app.meo.define;
 
-public final class ProvisionStatus {
-    private ProvisionStatus() {
+public final class MeoDevProvisionStatus {
+    private MeoDevProvisionStatus() {
     }
 
     public static final int STATUS_GENERIC = 0;

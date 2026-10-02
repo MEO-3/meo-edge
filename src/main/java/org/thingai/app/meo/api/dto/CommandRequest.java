@@ -2,7 +2,7 @@ package org.thingai.app.meo.api.dto;
 
 // Request body for device control: read or write one device-defined cap.
 // value is an int16 and only used by writes.
-public class MeoCommandRequest {
+public class CommandRequest {
     private String cap;
     private String op;
     private int value;

@@ -10,15 +10,14 @@ import org.thingai.app.meo.blemqtt.BlemqttError;
 import org.thingai.app.meo.blemqtt.BlemqttEvent;
 import org.thingai.app.meo.blemqtt.BlemqttOp;
 import org.thingai.app.meo.blemqtt.BlemqttReply;
-import org.thingai.app.meo.define.BleUuid;
 import org.thingai.app.meo.define.MeoErr;
-import org.thingai.app.meo.define.ProvisionStatus;
-import org.thingai.app.meo.define.TransportType;
-import org.thingai.app.meo.api.dto.MeoDeviceResponse;
+import org.thingai.app.meo.define.MeoDevProvisionStatus;
+import org.thingai.app.meo.define.MeoDevTransportType;
+import org.thingai.app.meo.api.dto.DeviceResponse;
 import org.thingai.app.meo.entity.MeoDevice;
 import org.thingai.app.meo.entity.MeoDeviceCap;
 import org.thingai.app.meo.entity.MeoDeviceProvision;
-import org.thingai.app.meo.define.MeoMsgFrame;
+import org.thingai.app.meo.define.MeoMsgEdgeFrame;
 import org.thingai.app.meo.callback.ProvisionEventListener;
 import org.thingai.app.meo.callback.RequestCallback;
 import org.thingai.app.meo.util.JsonUtil;
@@ -88,7 +87,7 @@ public class MeoProvisionHandler {
 
         JsonObject params = new JsonObject();
         params.addProperty("timeoutMs", timeoutMs);
-        params.addProperty("serviceUuid", BleUuid.MEO_DEVICE_PROVISION_SERVICE);
+        params.addProperty("serviceUuid", ProvisionBleUuid.MEO_DEVICE_PROVISION_SERVICE);
         if (namePrefix != null && !namePrefix.isEmpty()) {
             params.addProperty("namePrefix", namePrefix);
         }
@@ -138,12 +137,12 @@ public class MeoProvisionHandler {
             bleConnect(provision);
             readMac(provision);
             readCaps(provision);
-            updateStatus(provision, ProvisionStatus.STATUS_CONNECTED_BLE, "device connected");
+            updateStatus(provision, MeoDevProvisionStatus.STATUS_CONNECTED_BLE, "device connected");
             session = provision;
             callback.onResult(provision, "device connected");
         } catch (RuntimeException e) {
             ILog.e(TAG, "connect failed", e);
-            updateStatus(provision, ProvisionStatus.STATUS_FAILED, failureMessage(e, "connect failed"));
+            updateStatus(provision, MeoDevProvisionStatus.STATUS_FAILED, failureMessage(e, "connect failed"));
             safeDisconnect(provision);
             callback.onFailure(MeoErr.PROV_CONNECT_FAILED, failureMessage(e, "connect failed"));
         }
@@ -174,12 +173,12 @@ public class MeoProvisionHandler {
             subscribeStatus(current);
             writeNetworkConfig(current, ssid, password, brokerHost);
             awaitWifiJoin(current, terminalState);
-            updateStatus(current, ProvisionStatus.STATUS_PROVISIONED, "device provisioned");
+            updateStatus(current, MeoDevProvisionStatus.STATUS_PROVISIONED, "device provisioned");
             safeDisconnect(current);
             callback.onResult(current, "device provisioned");
         } catch (RuntimeException e) {
             ILog.e(TAG, "setupDevice failed", e);
-            updateStatus(current, ProvisionStatus.STATUS_FAILED, failureMessage(e, "setup failed"));
+            updateStatus(current, MeoDevProvisionStatus.STATUS_FAILED, failureMessage(e, "setup failed"));
             callback.onFailure(MeoErr.PROV_SETUP_FAILED, failureMessage(e, "setup failed"));
         } finally {
             blemqttClient.removeEventCallback();
@@ -188,13 +187,13 @@ public class MeoProvisionHandler {
 
     // Persists the session's device + cap rows. Requires setupDevice to have
     // completed (status = provisioned); clears the session on success.
-    public synchronized void persistDevice(RequestCallback<MeoDeviceResponse> callback) {
+    public synchronized void persistDevice(RequestCallback<DeviceResponse> callback) {
         ILog.i(TAG, "persistDevice", addressLog(session));
         if (session == null) {
             callback.onFailure(MeoErr.PROV_PRESIST_FAILED, "no device connected; call connect first");
             return;
         }
-        if (session.getStatus() != ProvisionStatus.STATUS_PROVISIONED) {
+        if (session.getStatus() != MeoDevProvisionStatus.STATUS_PROVISIONED) {
             callback.onFailure(MeoErr.PROV_PRESIST_FAILED, "device not set up; call setupDevice first");
             return;
         }
@@ -204,7 +203,7 @@ public class MeoProvisionHandler {
             MeoDevice device = saveDevice(current);
             persistCaps(device.getDeviceId(), current.getCaps());
             session = null;
-            MeoDeviceResponse response = MeoDeviceResponse.of(device, current.getCaps());
+            DeviceResponse response = DeviceResponse.of(device, current.getCaps());
             emit(EVENT_DEVICE_PERSISTED, response);
             callback.onResult(response, "device persisted");
         } catch (RuntimeException e) {
@@ -229,7 +228,7 @@ public class MeoProvisionHandler {
         MeoDevice device = new MeoDevice();
         device.setDeviceId(normalizeDeviceId(provision.getMacAddress()));
         device.setMacAddress(provision.getMacAddress());
-        device.setTransportType(TransportType.WIFI_LAN);
+        device.setTransportType(MeoDevTransportType.WIFI_LAN);
         device.setModel(provision.getModel());
         device.setFwVersion(provision.getFwVersion());
 
@@ -271,14 +270,14 @@ public class MeoProvisionHandler {
     // --- Steps ----------------------------------------------------------------
 
     private void bleConnect(MeoDeviceProvision provision) {
-        updateStatus(provision, ProvisionStatus.STATUS_CONNECTING_BLE, null);
+        updateStatus(provision, MeoDevProvisionStatus.STATUS_CONNECTING_BLE, null);
         sendBlocking(BlemqttCommand.create(BlemqttOp.DEVICE_CONNECT, addressParams(provision)));
         ILog.i(TAG, "connect", "connected", addressLog(provision));
     }
 
     private void readMac(MeoDeviceProvision provision) {
-        updateStatus(provision, ProvisionStatus.STATUS_READING_MAC, null);
-        String mac = readReplyValue(sendBlocking(gattRead(provision, BleUuid.MEO_DEVICE_MAC_CHAR)));
+        updateStatus(provision, MeoDevProvisionStatus.STATUS_READING_MAC, null);
+        String mac = readReplyValue(sendBlocking(gattRead(provision, ProvisionBleUuid.MEO_DEVICE_MAC_CHAR)));
         provision.setMacAddress(mac);
         ILog.i(TAG, "readDeviceMac", "macAddress=" + mac);
     }
@@ -286,9 +285,9 @@ public class MeoProvisionHandler {
     // Non-fatal: read/parse failure leaves an empty cap set — the device is still
     // usable on Wi-Fi and re-provisioning refreshes it.
     private void readCaps(MeoDeviceProvision provision) {
-        updateStatus(provision, ProvisionStatus.STATUS_READING_CAPABILITIES, null);
+        updateStatus(provision, MeoDevProvisionStatus.STATUS_READING_CAPABILITIES, null);
         try {
-            String raw = readReplyValue(sendBlocking(gattRead(provision, BleUuid.MEO_DEVICE_CAPABILITIES_CHAR)));
+            String raw = readReplyValue(sendBlocking(gattRead(provision, ProvisionBleUuid.MEO_DEVICE_CAPABILITIES_CHAR)));
             JsonObject report = JsonParser.parseString(raw).getAsJsonObject();
 
             JsonElement model = report.get("model");
@@ -316,7 +315,7 @@ public class MeoProvisionHandler {
             return new String[0];
         }
         JsonArray array = element.getAsJsonArray();
-        if (array.size() > MeoMsgFrame.MAX_IDX + 1) {
+        if (array.size() > MeoMsgEdgeFrame.MAX_IDX + 1) {
             throw new IllegalArgumentException("too many caps for a u8 idx: " + array.size());
         }
         String[] caps = new String[array.size()];
@@ -332,7 +331,7 @@ public class MeoProvisionHandler {
     }
 
     private void subscribeStatus(MeoDeviceProvision provision) {
-        sendBlocking(BlemqttCommand.create(BlemqttOp.GATT_SUBSCRIBE, gattParams(provision, BleUuid.MEO_PROVISION_STATUS_CHAR)));
+        sendBlocking(BlemqttCommand.create(BlemqttOp.GATT_SUBSCRIBE, gattParams(provision, ProvisionBleUuid.MEO_PROVISION_STATUS_CHAR)));
         ILog.i(TAG, "subscribeStatus", "subscribed", addressLog(provision));
     }
 
@@ -343,21 +342,21 @@ public class MeoProvisionHandler {
         networkConfig.addProperty("brokerHost", brokerHost);
         networkConfig.addProperty("brokerPort", DEVICE_BROKER_PORT);
 
-        JsonObject params = gattParams(provision, BleUuid.MEO_NETWORK_CONFIG_CHAR);
+        JsonObject params = gattParams(provision, ProvisionBleUuid.MEO_NETWORK_CONFIG_CHAR);
         params.addProperty("encoding", DEFAULT_ENCODING);
         params.addProperty("value", JsonUtil.toJson(networkConfig));
 
         provision.setWifiSsid(ssid);
-        updateStatus(provision, ProvisionStatus.STATUS_WRITING_WIFI, null);
+        updateStatus(provision, MeoDevProvisionStatus.STATUS_WRITING_WIFI, null);
         sendBlocking(BlemqttCommand.create(BlemqttOp.GATT_WRITE, params));
-        updateStatus(provision, ProvisionStatus.STATUS_WRITING_WIFI, "network config written");
+        updateStatus(provision, MeoDevProvisionStatus.STATUS_WRITING_WIFI, "network config written");
         ILog.i(TAG, "writeNetworkConfig", "written", "ssid=" + ssid,
                 "broker=" + brokerHost + ":" + DEVICE_BROKER_PORT);
     }
 
     // Block until the device reports a terminal Wi-Fi state or the timeout hits.
     private void awaitWifiJoin(MeoDeviceProvision provision, BlockingQueue<Object> terminalState) {
-        updateStatus(provision, ProvisionStatus.STATUS_READING_STATUS, null);
+        updateStatus(provision, MeoDevProvisionStatus.STATUS_READING_STATUS, null);
         Object result;
         try {
             result = terminalState.poll(WIFI_JOIN_TIMEOUT_MS, TimeUnit.MILLISECONDS);
@@ -395,7 +394,7 @@ public class MeoProvisionHandler {
         }
         JsonObject notification = payload.getAsJsonObject();
         if (!matches(notification, "address", provision.getBleAddress())
-                || !matches(notification, "characteristicUuid", BleUuid.MEO_PROVISION_STATUS_CHAR)) {
+                || !matches(notification, "characteristicUuid", ProvisionBleUuid.MEO_PROVISION_STATUS_CHAR)) {
             return;
         }
 
@@ -443,7 +442,7 @@ public class MeoProvisionHandler {
 
     private JsonObject gattParams(MeoDeviceProvision provision, String characteristicUuid) {
         JsonObject params = addressParams(provision);
-        params.addProperty("serviceUuid", BleUuid.MEO_DEVICE_PROVISION_SERVICE);
+        params.addProperty("serviceUuid", ProvisionBleUuid.MEO_DEVICE_PROVISION_SERVICE);
         params.addProperty("characteristicUuid", characteristicUuid);
         return params;
     }

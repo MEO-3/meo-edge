@@ -3,7 +3,7 @@ package org.thingai.app.meo.api.dto;
 import org.thingai.app.meo.entity.MeoDevice;
 
 // API read model: a device row with its cap keys in wire order. Not persisted.
-public class MeoDeviceResponse {
+public class DeviceResponse {
     private String deviceId;
     private String name;
     private String description;
@@ -13,8 +13,8 @@ public class MeoDeviceResponse {
     private String fwVersion;
     private String[] caps;
 
-    public static MeoDeviceResponse of(MeoDevice device, String[] caps) {
-        MeoDeviceResponse view = new MeoDeviceResponse();
+    public static DeviceResponse of(MeoDevice device, String[] caps) {
+        DeviceResponse view = new DeviceResponse();
         view.deviceId = device.getDeviceId();
         view.name = device.getName();
         view.description = device.getDescription();

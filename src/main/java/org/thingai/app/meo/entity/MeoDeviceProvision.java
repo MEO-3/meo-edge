@@ -1,6 +1,6 @@
 package org.thingai.app.meo.entity;
 
-import org.thingai.app.meo.define.ProvisionStatus;
+import org.thingai.app.meo.define.MeoDevProvisionStatus;
 
 public class MeoDeviceProvision {
     private String bleAddress;
@@ -10,7 +10,7 @@ public class MeoDeviceProvision {
     private String[] caps;
     private String wifiSsid;
     private String provisionStatus;
-    private int status = ProvisionStatus.STATUS_CREATED;
+    private int status = MeoDevProvisionStatus.STATUS_CREATED;
     private String message;
 
     public String getBleAddress() {

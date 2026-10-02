@@ -4,9 +4,9 @@ import io.javalin.config.JavalinConfig;
 import io.javalin.http.Context;
 import io.javalin.http.sse.SseClient;
 import com.google.gson.JsonObject;
-import org.thingai.app.meo.api.dto.MeoDeviceResponse;
-import org.thingai.app.meo.api.dto.MeoErrorResponse;
-import org.thingai.app.meo.api.dto.MeoProvisionRequest;
+import org.thingai.app.meo.api.dto.DeviceResponse;
+import org.thingai.app.meo.api.dto.ErrorResponse;
+import org.thingai.app.meo.api.dto.ProvisionRequest;
 import org.thingai.app.meo.callback.ProvisionEventListener;
 import org.thingai.app.meo.callback.RequestCallback;
 import org.thingai.app.meo.define.MeoErr;
@@ -92,7 +92,7 @@ public class ProvisionRoute implements ProvisionEventListener {
     }
 
     private void connect(Context ctx) {
-        MeoProvisionRequest request = ctx.bodyAsClass(MeoProvisionRequest.class);
+        ProvisionRequest request = ctx.bodyAsClass(ProvisionRequest.class);
         if (request == null || isBlank(request.getBleAddress())) {
             ctx.status(400).json(error(MeoErr.PROV_CONNECT_FAILED, "bleAddress is required"));
             return;
@@ -111,7 +111,7 @@ public class ProvisionRoute implements ProvisionEventListener {
     }
 
     private void setup(Context ctx) {
-        MeoProvisionRequest request = ctx.bodyAsClass(MeoProvisionRequest.class);
+        ProvisionRequest request = ctx.bodyAsClass(ProvisionRequest.class);
         if (request == null || isBlank(request.getSsid())) {
             ctx.status(400).json(error(MeoErr.PROV_SETUP_FAILED, "ssid is required"));
             return;
@@ -130,9 +130,9 @@ public class ProvisionRoute implements ProvisionEventListener {
     }
 
     private void persist(Context ctx) {
-        provisionHandler.persistDevice(new RequestCallback<MeoDeviceResponse>() {
+        provisionHandler.persistDevice(new RequestCallback<DeviceResponse>() {
             @Override
-            public void onResult(MeoDeviceResponse device, String message) {
+            public void onResult(DeviceResponse device, String message) {
                 ctx.json(device);
             }
 
@@ -147,8 +147,8 @@ public class ProvisionRoute implements ProvisionEventListener {
         ctx.status(status).json(error(errorCode, message));
     }
 
-    private MeoErrorResponse error(int errorCode, String message) {
-        return new MeoErrorResponse(errorCode, message);
+    private ErrorResponse error(int errorCode, String message) {
+        return new ErrorResponse(errorCode, message);
     }
 
     private int parseTimeout(String value) {

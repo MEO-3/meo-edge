@@ -2,7 +2,7 @@ package org.thingai.app.meo.api.dto;
 
 // Request body for the stepped provisioning endpoints: connect uses bleAddress,
 // setup uses ssid/password.
-public class MeoProvisionRequest {
+public class ProvisionRequest {
     private String bleAddress;
     private String ssid;
     private String password;

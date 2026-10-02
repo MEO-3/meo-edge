@@ -1,7 +1,7 @@
-package org.thingai.app.meo.define;
+package org.thingai.app.meo.handler.provision;
 
-public final class BleUuid {
-    private BleUuid() {
+public final class ProvisionBleUuid {
+    private ProvisionBleUuid() {
 
     }
 

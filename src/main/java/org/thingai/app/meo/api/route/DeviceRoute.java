@@ -2,8 +2,8 @@ package org.thingai.app.meo.api.route;
 
 import io.javalin.config.JavalinConfig;
 import io.javalin.http.Context;
-import org.thingai.app.meo.api.dto.MeoDeviceResponse;
-import org.thingai.app.meo.api.dto.MeoErrorResponse;
+import org.thingai.app.meo.api.dto.DeviceResponse;
+import org.thingai.app.meo.api.dto.ErrorResponse;
 import org.thingai.app.meo.define.MeoErr;
 import org.thingai.app.meo.entity.MeoDevice;
 import org.thingai.app.meo.handler.mngt.MeoMngtHandler;
@@ -25,7 +25,7 @@ public class DeviceRoute {
 
     private void list(Context ctx) {
         MeoDevice[] devices = deviceHandler.getDevices();
-        MeoDeviceResponse[] response = new MeoDeviceResponse[devices.length];
+        DeviceResponse[] response = new DeviceResponse[devices.length];
         for (int i = 0; i < devices.length; i++) {
             response[i] = toResponse(devices[i]);
         }
@@ -44,7 +44,7 @@ public class DeviceRoute {
     private void update(Context ctx) {
         MeoDevice update = ctx.bodyAsClass(MeoDevice.class);
         if (update == null) {
-            ctx.status(400).json(new MeoErrorResponse(MeoErr.DEVICE_UPDATE_FAILED, "request body is required"));
+            ctx.status(400).json(new ErrorResponse(MeoErr.DEVICE_UPDATE_FAILED, "request body is required"));
             return;
         }
         MeoDevice device = deviceHandler.updateDevice(ctx.pathParam("deviceId"), update);
@@ -64,14 +64,14 @@ public class DeviceRoute {
             notFound(ctx);
             return;
         }
-        ctx.json(MeoDeviceResponse.of(device, caps));
+        ctx.json(DeviceResponse.of(device, caps));
     }
 
-    private MeoDeviceResponse toResponse(MeoDevice device) {
-        return MeoDeviceResponse.of(device, deviceHandler.getCaps(device.getDeviceId()));
+    private DeviceResponse toResponse(MeoDevice device) {
+        return DeviceResponse.of(device, deviceHandler.getCaps(device.getDeviceId()));
     }
 
     private void notFound(Context ctx) {
-        ctx.status(404).json(new MeoErrorResponse(MeoErr.DEVICE_NOT_FOUND, "device not found"));
+        ctx.status(404).json(new ErrorResponse(MeoErr.DEVICE_NOT_FOUND, "device not found"));
     }
 }

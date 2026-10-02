@@ -1,13 +1,13 @@
 package org.thingai.app.meo.api.dto;
 
-public class MeoErrorResponse {
+public class ErrorResponse {
     private int errorCode;
     private String error;
 
-    public MeoErrorResponse() {
+    public ErrorResponse() {
     }
 
-    public MeoErrorResponse(int errorCode, String error) {
+    public ErrorResponse(int errorCode, String error) {
         this.errorCode = errorCode;
         this.error = error;
     }

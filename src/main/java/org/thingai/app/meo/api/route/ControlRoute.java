@@ -2,14 +2,13 @@ package org.thingai.app.meo.api.route;
 
 import io.javalin.config.JavalinConfig;
 import io.javalin.http.Context;
-import org.thingai.app.meo.api.dto.MeoCommandRequest;
-import org.thingai.app.meo.api.dto.MeoCommandResponse;
-import org.thingai.app.meo.api.dto.MeoErrorResponse;
+import org.thingai.app.meo.api.dto.CommandRequest;
+import org.thingai.app.meo.api.dto.CommandResponse;
+import org.thingai.app.meo.api.dto.ErrorResponse;
 import org.thingai.app.meo.callback.RequestCallback;
 import org.thingai.app.meo.define.MeoErr;
-import org.thingai.app.meo.define.MeoMsgErr;
 import org.thingai.app.meo.handler.msg.MeoMsgHandler;
-import org.thingai.app.meo.define.MeoMsgFrame;
+import org.thingai.app.meo.define.MeoMsgEdgeFrame;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -28,12 +27,12 @@ public class ControlRoute {
 
     private void command(Context ctx) {
         if (msgHandler == null) {
-            fail(ctx, MeoMsgErr.SEND_FAILED, "device messaging is not connected", 503);
+            fail(ctx, MeoErr.MSG_SEND_FAILED, "device messaging is not connected", 503);
             return;
         }
-        MeoCommandRequest request = ctx.bodyAsClass(MeoCommandRequest.class);
+        CommandRequest request = ctx.bodyAsClass(CommandRequest.class);
         if (request == null) {
-            fail(ctx, MeoMsgErr.BAD_REQUEST, "request body is required", 400);
+            fail(ctx, MeoErr.BAD_REQUEST, "request body is required", 400);
             return;
         }
 
@@ -45,7 +44,7 @@ public class ControlRoute {
         msgHandler.sendDown(deviceId, cap, toOp(request.getOp()), request.getValue(), new RequestCallback<Integer>() {
             @Override
             public void onResult(Integer value, String message) {
-                ctx.json(MeoCommandResponse.of(deviceId, cap, value));
+                ctx.json(CommandResponse.of(deviceId, cap, value));
                 done.complete(null);
             }
 
@@ -60,10 +59,10 @@ public class ControlRoute {
     // Unknown op maps to -1, which the handler rejects.
     private int toOp(String op) {
         if ("read".equals(op)) {
-            return MeoMsgFrame.TYPE_READ;
+            return MeoMsgEdgeFrame.TYPE_READ;
         }
         if ("write".equals(op)) {
-            return MeoMsgFrame.TYPE_WRITE;
+            return MeoMsgEdgeFrame.TYPE_WRITE;
         }
         return -1;
     }
@@ -72,16 +71,16 @@ public class ControlRoute {
         if (errorCode == MeoErr.DEVICE_NOT_FOUND) {
             return 404;
         }
-        if (errorCode == MeoMsgErr.TIMEOUT) {
+        if (errorCode == MeoErr.MSG_TIMEOUT) {
             return 504;
         }
-        if (errorCode == MeoMsgErr.HANDLE_FAILED || errorCode == MeoMsgErr.SEND_FAILED) {
+        if (errorCode == MeoErr.HANDLE_FAILED || errorCode == MeoErr.MSG_SEND_FAILED) {
             return 502;
         }
         return 400;
     }
 
     private void fail(Context ctx, int errorCode, String message, int status) {
-        ctx.status(status).json(new MeoErrorResponse(errorCode, message));
+        ctx.status(status).json(new ErrorResponse(errorCode, message));
     }
 }
