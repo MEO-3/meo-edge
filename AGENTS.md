@@ -2,16 +2,18 @@
 
 ## Project Structure & Module Organization
 
-This repository is the MEO 3 open edge service (the gateway "hub") for IoT education hardware. It is a single Gradle project (`meo-edge`), not a multi-module build. Service code lives under `src/main/java/org/thingai/app/meo`:
+This repository is the MEO 3 edge service (the "hub") for IoT education hardware; it runs on the gateway hardware (Raspberry Pi / Nano Pi class).
+
+Terms: **gateway** = the hardware box; **edge** = the gateway plus the services running on it (this repo, the Rust BLE service, the MQTT broker). It is a single Gradle project (`meo-edge`), not a multi-module build. Service code lives under `src/main/java/org/thingai/app/meo`:
 
 - `Main.java` / `MeoService.java` — entry point; starts a Javalin HTTP server on `MEO_SERVICE_PORT` (default `7070`).
 - `api/` — Javalin route registration. Keep routes thin and delegate to handlers.
-- `handler/` — business logic, one subpackage per concern: `mngt/` (`MeoMngtHandler`, device registry), `provision/` (`MeoProvisionHandler`), `msg/` (`MeoMsgHandler`). Callback interfaces live in `callback/`.
+- `handler/` — business logic, one subpackage per concern: `mngt/` (`MeoMngtHandler`, device registry), `provision/` (`MeoProvisionHandler`, `ProvisionBleUuid`), `msg/` (`MeoMsgHandler`), `cloud/` (`MeoCloudHandler`). Callback interfaces live in `callback/`.
 - `blemqtt/` — MQTT client (`BlemqttClient`) that drives the Rust BLE service over the generic `blemqtt` protocol.
-- `transport/{ble,mqtt}/` — transport abstractions.
-- `define/` — UUIDs, enums, and shared constants (`BleUuid`, `MeoMsgFrame`, `MeoTopics`, `ProvisionStatus`, `TransportType`).
+- `define/` — enums and shared constants (`MeoErr`, `MeoMsgEdgeFrame`, `MeoMsgCloudFrame`, `MeoTopic`, `MeoDevProvisionStatus`, `MeoDevTransportType`).
+- `api/dto/` — HTTP request/response shapes (`DeviceResponse`, `CommandRequest`, ...).
 - `entity/` — DTO/entity classes (`MeoDevice`, `MeoDeviceProvision`, ...).
-- `util/` — helpers (`ByteUtil`, `JsonUtil`).
+- `util/` — helpers (`ByteUtil`, `JsonUtil`, `NetUtil`).
 
 The base framework (`Service`, `Dao`/`DaoSqlite`, `ILog`; packages `org.thingai.base.*` and `org.thingai.platform.*`) is **not in source** — it ships as bundled jars in `libs/` (`applicationbase.jar`, `edgeplatform.jar`, `aibase.jar`). Read the jars or treat them as external API.
 
@@ -23,7 +25,7 @@ A top-level `Makefile` wraps Gradle and the Rust build. The Gradle wrapper may n
 
 - `make build` — `gradlew installDist` → `build/install/meo-edge`.
 - `make compile` — compile only (`gradlew compileJava`).
-- `make test` — run Java tests (JUnit 5; none checked in yet).
+- `make test` — run Java tests (JUnit 5).
 - `make clean` — remove Gradle build output.
 - `make ble-x86` / `make ble-arm` — build the Rust BLE binary (host x86_64 / cross aarch64).
 - `make package` / `make dist` — per-arch release tarballs (`build/dist/meo-edge-<arch>.tar.gz`); the matching BLE binary must be built first.
@@ -34,11 +36,19 @@ Runtime config: environment variables `MEO_SERVICE_PORT` and `MEO_DATA_DIR` (see
 
 Java with 4-space indentation. Keep package names under `org.thingai.app.meo`. Follow existing class prefixes such as `Meo...` (`MeoService`, `MeoMngtHandler`) and `Blemqtt...` (`BlemqttClient`, `BlemqttCommand`). API route classes stay thin and delegate business logic to `handler/` classes.
 
+Naming:
+
+- `Meo` prefix — contracts shared across layers (device, edge, cloud): `MeoErr`, `MeoTopic`, `MeoMsg*Frame`, handlers, entities.
+- `MeoDev*` — constants describing a device (`MeoDevProvisionStatus`, `MeoDevTransportType`).
+- `MeoMsgEdgeFrame` / `MeoMsgCloudFrame` — wire frames per hop: device ↔ edge, edge ↔ cloud.
+- No prefix — edge-internal only: `api/dto/` classes, `ProvisionBleUuid`.
+- `MeoErr` codes are ranged by where the error occurred: 0 generic, 1–99 device, 100–199 edge, 200–299 cloud.
+
 Prefer explicit DTO/entity classes over raw JSON maps for stable service contracts. Keep comments short and useful, especially around hardware/BLE protocol details.
 
 ## Testing Guidelines
 
-JUnit 5 is configured, but no tests are currently checked in. Add tests under `src/test/java`, mirroring the production package. Name tests `*Test.java`, for example `MeoMngtHandlerTest.java`. Focus coverage on `blemqtt` command/reply handling, the provisioning flow, protocol parsing, and DAO-backed behavior.
+JUnit 5 is configured (`MeoFrameTest` covers frame encoding). Add tests under `src/test/java`, mirroring the production package. Name tests `*Test.java`, for example `MeoMngtHandlerTest.java`. Focus coverage on `blemqtt` command/reply handling, the provisioning flow, protocol parsing, and DAO-backed behavior.
 
 ## Commit & Pull Request Guidelines
 
