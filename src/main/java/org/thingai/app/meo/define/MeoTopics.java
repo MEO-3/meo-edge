@@ -1,7 +1,7 @@
 package org.thingai.app.meo.define;
 
 /**
- * Device messaging topics (docs/mqtt_messaging.md): down = edge → device, up = device → edge.
+ * Device messaging topics: down = edge → device, up = device → edge.
  * Not BlemqttTopics, which is the internal channel to the Rust BLE service.
  */
 public final class MeoTopics {

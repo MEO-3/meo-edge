@@ -37,7 +37,7 @@ CRUD over provisioned devices. Devices are **created by the provisioning flow** 
 endpoints list, edit user metadata, and remove them.
 
 Device responses use the `MeoDeviceResponse` read model — the device row joined with its
-capability ids:
+cap keys (in wire idx order):
 
 ```json
 {
@@ -45,11 +45,10 @@ capability ids:
   "name": "kitchen sensor",
   "description": "on the shelf",
   "macAddress": "AA:BB:CC:DD:EE:FF",
-  "deviceType": 2,
   "transportType": 1,
   "model": "meo-c3",
   "fwVersion": "1.0.0",
-  "capabilities": [1, 3]
+  "caps": ["temp", "led"]
 }
 ```
 
@@ -63,18 +62,18 @@ Get one device. `404` with `errorCode` 200 if unknown.
 
 ### `PUT /api/v1/devices/{deviceId}`
 
-Update a device's **user metadata only**: `name`, `description`, `deviceType`. Identity
+Update a device's **user metadata only**: `name`, `description`. Identity
 (`deviceId`, `macAddress`) and firmware-reported fields (`model`, `fwVersion`, `transportType`)
 are owned by the provisioning flow — if present in the body they are ignored. Returns the updated
 `MeoDeviceResponse`; `404` if unknown.
 
 ```json
-{ "name": "kitchen sensor", "description": "on the shelf", "deviceType": 2 }
+{ "name": "kitchen sensor", "description": "on the shelf" }
 ```
 
 ### `DELETE /api/v1/devices/{deviceId}`
 
-Delete a device and its capability rows. Returns the deleted `MeoDeviceResponse`; `404` if unknown.
+Delete a device and its cap rows. Returns the deleted `MeoDeviceResponse`; `404` if unknown.
 
 ## Provisioning
 
@@ -98,7 +97,7 @@ Returns the discovered devices as reported by the BLE service. `500` on scan fai
 ### `POST /api/v1/provision/connect`
 
 Step 2 — connect to a scanned device over BLE and read its identity (MAC address, model, firmware
-version, capabilities).
+version, caps).
 
 ```json
 { "bleAddress": "<address from a scan result>" }
@@ -145,99 +144,34 @@ late or reconnecting clients see where the flow stands.
 
 ## Control
 
-One endpoint drives every device. There is **no verb**: the capability id encodes the action, so the
-same call reads a sensor, writes an actuator, or runs a generic command depending on which id you
-send (see `define/MeoCmd.java`).
-
-The gateway publishes an MQTT command frame to the device and blocks for its reply
-(see `docs/mqtt_messaging.md`), owning request correlation and the timeout on the caller's behalf.
-
-This is one way to command a device, not the only one: a client that already speaks MQTT can
-publish the command frame itself, which is what the Node-RED `meo-command` node does. Use this
-endpoint when you would rather not implement frame encoding and reply correlation.
-
 ### `POST /api/v1/devices/{deviceId}/command`
 
+Read or write one of the device's caps. The gateway sends the device a frame over MQTT and waits
+for its reply, up to **10 seconds**.
+
 ```json
-{ "cap": 65281, "value": 1 }
+{ "cap": "led", "op": "write", "value": 1 }
 ```
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `cap` | int | Capability id, `0`–`65535`. JSON has no hex literal, so send it in **decimal** |
-| `value` | int | Only read for WRITE capabilities; ignored by reads and generic commands |
+| `cap` | string | Cap key, as reported by the device |
+| `op` | string | `read` or `write` |
+| `value` | int | int16 (`-32768`–`32767`); used by `write` only. Decimals are sent x100 |
 
-Returns `MeoCommandResponse` — the value the device reported back, with `deviceId` and `cap` echoed
-so a caller firing several commands can tell the replies apart:
+Returns `MeoCommandResponse` — the value the device reported back, with `deviceId` and `cap` echoed:
 
 ```json
-{ "deviceId": "AA:BB:CC:DD:EE:FF", "cap": 65281, "value": 1.0 }
+{ "deviceId": "aabbccddeeff", "cap": "led", "value": 1 }
 ```
-
-`value` is decoded per capability kind: READ replies carry **float32** (`61441` → `23.5` °C),
-everything else **int32**.
-
-Reading a temperature sensor:
-
-```bash
-curl -X POST http://<gateway>:7070/api/v1/devices/AA:BB:CC:DD:EE:FF/command \
-  -H 'Content-Type: application/json' -d '{ "cap": 61441 }'
-```
-
-The call blocks until the device replies, up to **10 seconds**.
-
-#### Capability ids
-
-Values are the authoritative list in `define/MeoCmd.java`; the labels are what a child sees in the
-Node-RED palette (`lib/meo-caps.js`) and the firmware's `Meo3_Cmd.h` carries the same numbers. The id
-range decides the kind — that is why there is no verb field.
-
-| Range | Kind | Reply value | `value` used |
-| --- | --- | --- | --- |
-| `0x0001`–`0x0006` | Generic command | int32 | only by `0x0005` |
-| `0xE000`–`0xEFFF` | Event | — | **not commandable** (device → gateway only) |
-| `0xF000`–`0xFEFF` | Read | float32 | no |
-| `0xFF00`–`0xFFFF` | Write | int32 | yes |
-
-| Hex | Decimal | Label |
-| --- | --- | --- |
-| `0x0001` | 1 | Generic command |
-| `0x0002` | 2 | Write |
-| `0x0003` | 3 | Read |
-| `0x0004` | 4 | Run |
-| `0x0005` | 5 | Run with value |
-| `0x0006` | 6 | Stop |
-| `0xE000` | 57344 | Generic event |
-| `0xE001` | 57345 | Button |
-| `0xF000` | 61440 | Generic reading |
-| `0xF001` | 61441 | Temperature |
-| `0xF002` | 61442 | Humidity |
-| `0xF003` | 61443 | Pressure |
-| `0xF004` | 61444 | CO2 |
-| `0xF005` | 61445 | Fine dust (PM2.5) |
-| `0xF006` | 61446 | Distance |
-| `0xFF00` | 65280 | Generic output |
-| `0xFF01` | 65281 | Built-in LED |
-| `0xFF02` | 65282 | RGB LED |
-| `0xFF03` | 65283 | Buzzer |
-| `0xFF04` | 65284 | Motor |
-| `0xFF05` | 65285 | Servo |
-
-A device's own `capabilities` array (`GET /api/v1/devices/{deviceId}`) lists what it implements — but
-the device is the final authority: an unimplemented id is rejected by the firmware, not by the gateway.
 
 #### Status codes
 
 | Status | `errorCode` | When |
 | --- | --- | --- |
 | `200` | — | Device replied; body is `MeoCommandResponse` |
-| `400` | 300 | Missing body, `cap` out of range, or an event id (`0xE000`–`0xEFFF`) |
-| `400` | 301 | Device does not implement the capability |
+| `400` | 1, 2, 4 | Bad request, unknown cap, or op not supported (from the gateway or the device) |
 | `404` | 200 | Unknown device |
-| `502` | 303 | Device rejected the command or failed to execute it |
-| `503` | 300 | Device messaging is not connected (MQTT unavailable at startup) |
-| `504` | 302 | Device did not reply within 10 s |
-
-The device-side reason behind `502` comes from the firmware's error code (`define/MeoMsgErr.java`):
-1 malformed request, 2 unknown capability, 3 handler failed. Code 2 is surfaced as `400`/301 rather
-than `502`, since the caller — not the device — has to fix it.
+| `502` | 3, 6 | Device failed to run it, or the gateway could not send |
+| `503` | 6 | Device messaging is not connected (MQTT unavailable at startup) |
+| `504` | 5 | Device did not reply within 10 s |

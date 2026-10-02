@@ -1,7 +1,7 @@
 # Zigbee2MQTT — Device Key Research
 
 > Research notes for a planned Zigbee2MQTT (z2m) bridge integration. Nothing here is implemented
-> yet — this is groundwork for the capability-mapping design (see "Open question for MEO" below).
+> yet — this is groundwork for the capability-mapping design.
 
 ## Headline finding: there is no fixed, universal key set
 
@@ -53,28 +53,9 @@ Everything else is category-specific. The key set has to be read from each devic
 
 ## State (readings) are push-based
 
-Unlike MEO's native devices (which are polled on demand — see `../mqtt_messaging.md`), z2m
+Unlike MEO's native devices (which are read on demand), z2m
 publishes the **full current state** to `zigbee2mqtt/FRIENDLY_NAME` every time anything changes.
 There is no request/reply round trip for reads in normal operation.
-
-## Open question for MEO: capability-id mapping
-
-MEO's control model (`../http_api.md` "Capability ids", `MeoCmd.java`) is a fixed 16-bit id range
-where the range itself encodes the verb, and every command carries exactly one scalar `value`.
-Zigbee2MQTT's `exposes` are typed, open-ended, and not numeric.
-
-The single-scalar categories above (`state`, `brightness`, `color_temp`, `position`, and read-only
-sensor values) map cleanly onto MEO's existing write/read ranges. The ones that don't:
-
-- `color` — a nested `{x, y}` or `{hue, saturation}` object, not a scalar.
-- Multi-property payloads (e.g. setting `brightness` and `color_temp` together) — MEO's command
-  frame carries one `cap` + one `value` per message.
-- `climate`/`system_mode` — an enum with several interacting fields, not a single read/write pair.
-
-Deciding whether to squeeze these into MEO's existing scheme (lossy, but zero changes to
-Node-RED/firmware headers) or give z2m devices a parallel capability vocabulary (clean, but
-requires transport-aware changes in `meo-caps.js` and `MeoMsgHandler`) is a prerequisite for
-implementation — not yet decided.
 
 ## Sources
 
