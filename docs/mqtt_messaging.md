@@ -118,7 +118,7 @@ The device must publish exactly one reply per received command, echoing the `req
 | 2 | 1 | `ok` | `uint8` (0/1) | Whether the command was accepted and executed |
 | 3 | 2 | `cap` | `uint16` LE | Echoed target capability; `0` on failure |
 | 5 | 4 | `value` | `int32` LE or `float32` LE | See below; `0` on failure |
-| 9 | 1 | `error` | `uint8` | See `MeoCmdErrCode.java`: 1 = bad request, 2 = unknown capability, 3 = handle failed; `0` when `ok=1` |
+| 9 | 1 | `error` | `uint8` | See `MeoMsgErr.java`: 1 = bad request, 2 = unknown capability, 3 = handle failed; `0` when `ok=1` |
 
 `value`'s encoding on success depends on which table matched the command's `cap`:
 

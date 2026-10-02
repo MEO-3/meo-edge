@@ -73,7 +73,7 @@ sensor values) map cleanly onto MEO's existing write/read ranges. The ones that 
 
 Deciding whether to squeeze these into MEO's existing scheme (lossy, but zero changes to
 Node-RED/firmware headers) or give z2m devices a parallel capability vocabulary (clean, but
-requires transport-aware changes in `meo-caps.js` and `MeoControlHandler`) is a prerequisite for
+requires transport-aware changes in `meo-caps.js` and `MeoMsgHandler`) is a prerequisite for
 implementation — not yet decided.
 
 ## Sources

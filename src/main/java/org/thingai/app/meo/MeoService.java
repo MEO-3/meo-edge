@@ -8,7 +8,7 @@ import org.thingai.app.meo.blemqtt.BlemqttClient;
 import org.thingai.app.meo.blemqtt.BlemqttConfig;
 import org.thingai.app.meo.entity.MeoDevice;
 import org.thingai.app.meo.entity.MeoDeviceCap;
-import org.thingai.app.meo.handler.control.MeoControlHandler;
+import org.thingai.app.meo.handler.msg.MeoMsgHandler;
 import org.thingai.app.meo.handler.mngt.MeoMngtHandler;
 import org.thingai.app.meo.handler.provision.MeoProvisionHandler;
 import org.thingai.base.Service;
@@ -29,7 +29,7 @@ public class MeoService extends Service {
     private MqttClient deviceMqttClient;
     private MeoMngtHandler deviceHandler;
     private MeoProvisionHandler provisionHandler;
-    private MeoControlHandler controlHandler;
+    private MeoMsgHandler msgHandler;
 
     protected MeoService() {
         super("MeoService");
@@ -78,8 +78,8 @@ public class MeoService extends Service {
             options.setSessionExpiryInterval(MQTT_SESSION_EXPIRY_SECONDS);
             deviceMqttClient.connect(options);
 
-            controlHandler = new MeoControlHandler(deviceMqttClient, deviceHandler);
-            controlHandler.start();
+            msgHandler = new MeoMsgHandler(deviceMqttClient, deviceHandler);
+            msgHandler.start();
             ILog.i(TAG, "device mqtt connected", blemqttConfig.getBrokerUrl());
         } catch (Exception e) {
             ILog.e(TAG, "device mqtt connect failed", e);
@@ -115,7 +115,7 @@ public class MeoService extends Service {
         return provisionHandler;
     }
 
-    public MeoControlHandler controlHandler() {
-        return controlHandler;
+    public MeoMsgHandler msgHandler() {
+        return msgHandler;
     }
 }

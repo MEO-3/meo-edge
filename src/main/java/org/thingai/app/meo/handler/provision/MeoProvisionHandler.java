@@ -11,14 +11,14 @@ import org.thingai.app.meo.blemqtt.BlemqttEvent;
 import org.thingai.app.meo.blemqtt.BlemqttOp;
 import org.thingai.app.meo.blemqtt.BlemqttReply;
 import org.thingai.app.meo.define.BleUuid;
-import org.thingai.app.meo.define.ErrorCode;
+import org.thingai.app.meo.define.MeoErr;
 import org.thingai.app.meo.define.ProvisionStatus;
 import org.thingai.app.meo.define.TransportType;
 import org.thingai.app.meo.api.dto.MeoDeviceResponse;
 import org.thingai.app.meo.entity.MeoDevice;
 import org.thingai.app.meo.entity.MeoDeviceCap;
 import org.thingai.app.meo.entity.MeoDeviceProvision;
-import org.thingai.app.meo.handler.msg.MeoFrame;
+import org.thingai.app.meo.define.MeoMsgFrame;
 import org.thingai.app.meo.callback.ProvisionEventListener;
 import org.thingai.app.meo.callback.RequestCallback;
 import org.thingai.app.meo.util.JsonUtil;
@@ -105,7 +105,7 @@ public class MeoProvisionHandler {
             callback.onResult(devices, "scan complete");
         } catch (RuntimeException e) {
             ILog.e(TAG, "scan failed", e);
-            callback.onFailure(ErrorCode.PROV_SCAN_FAILED, failureMessage(e, "scan failed"));
+            callback.onFailure(MeoErr.PROV_SCAN_FAILED, failureMessage(e, "scan failed"));
         }
     }
 
@@ -127,7 +127,7 @@ public class MeoProvisionHandler {
     public synchronized void connect(String bleAddress, RequestCallback<MeoDeviceProvision> callback) {
         ILog.i(TAG, "connect", "bleAddress=" + bleAddress);
         if (isEmpty(bleAddress)) {
-            callback.onFailure(ErrorCode.PROV_CONNECT_FAILED, "ble address is required");
+            callback.onFailure(MeoErr.PROV_CONNECT_FAILED, "ble address is required");
             return;
         }
         reset();
@@ -145,7 +145,7 @@ public class MeoProvisionHandler {
             ILog.e(TAG, "connect failed", e);
             updateStatus(provision, ProvisionStatus.STATUS_FAILED, failureMessage(e, "connect failed"));
             safeDisconnect(provision);
-            callback.onFailure(ErrorCode.PROV_CONNECT_FAILED, failureMessage(e, "connect failed"));
+            callback.onFailure(MeoErr.PROV_CONNECT_FAILED, failureMessage(e, "connect failed"));
         }
     }
 
@@ -154,16 +154,16 @@ public class MeoProvisionHandler {
     public synchronized void setupDevice(String ssid, String password, RequestCallback<MeoDeviceProvision> callback) {
         ILog.i(TAG, "setupDevice", addressLog(session));
         if (session == null) {
-            callback.onFailure(ErrorCode.PROV_SETUP_FAILED, "no device connected; call connect first");
+            callback.onFailure(MeoErr.PROV_SETUP_FAILED, "no device connected; call connect first");
             return;
         }
         if (isEmpty(ssid)) {
-            callback.onFailure(ErrorCode.PROV_SETUP_FAILED, "wifi ssid is required");
+            callback.onFailure(MeoErr.PROV_SETUP_FAILED, "wifi ssid is required");
             return;
         }
         String brokerHost = NetUtil.lanIpv4();
         if (isEmpty(brokerHost)) {
-            callback.onFailure(ErrorCode.PROV_SETUP_FAILED, "cannot determine gateway LAN IPv4");
+            callback.onFailure(MeoErr.PROV_SETUP_FAILED, "cannot determine gateway LAN IPv4");
             return;
         }
 
@@ -180,7 +180,7 @@ public class MeoProvisionHandler {
         } catch (RuntimeException e) {
             ILog.e(TAG, "setupDevice failed", e);
             updateStatus(current, ProvisionStatus.STATUS_FAILED, failureMessage(e, "setup failed"));
-            callback.onFailure(ErrorCode.PROV_SETUP_FAILED, failureMessage(e, "setup failed"));
+            callback.onFailure(MeoErr.PROV_SETUP_FAILED, failureMessage(e, "setup failed"));
         } finally {
             blemqttClient.removeEventCallback();
         }
@@ -191,11 +191,11 @@ public class MeoProvisionHandler {
     public synchronized void persistDevice(RequestCallback<MeoDeviceResponse> callback) {
         ILog.i(TAG, "persistDevice", addressLog(session));
         if (session == null) {
-            callback.onFailure(ErrorCode.PROV_PRESIST_FAILED, "no device connected; call connect first");
+            callback.onFailure(MeoErr.PROV_PRESIST_FAILED, "no device connected; call connect first");
             return;
         }
         if (session.getStatus() != ProvisionStatus.STATUS_PROVISIONED) {
-            callback.onFailure(ErrorCode.PROV_PRESIST_FAILED, "device not set up; call setupDevice first");
+            callback.onFailure(MeoErr.PROV_PRESIST_FAILED, "device not set up; call setupDevice first");
             return;
         }
 
@@ -209,7 +209,7 @@ public class MeoProvisionHandler {
             callback.onResult(response, "device persisted");
         } catch (RuntimeException e) {
             ILog.e(TAG, "persistDevice failed", e);
-            callback.onFailure(ErrorCode.PROV_PRESIST_FAILED, failureMessage(e, "persist failed"));
+            callback.onFailure(MeoErr.PROV_PRESIST_FAILED, failureMessage(e, "persist failed"));
         }
     }
 
@@ -326,7 +326,7 @@ public class MeoProvisionHandler {
             return new String[0];
         }
         JsonArray array = element.getAsJsonArray();
-        if (array.size() > MeoFrame.MAX_IDX + 1) {
+        if (array.size() > MeoMsgFrame.MAX_IDX + 1) {
             throw new IllegalArgumentException("too many caps for a u8 idx: " + array.size());
         }
         String[] caps = new String[array.size()];

@@ -9,7 +9,7 @@ import org.thingai.app.meo.api.dto.MeoErrorResponse;
 import org.thingai.app.meo.api.dto.MeoProvisionRequest;
 import org.thingai.app.meo.callback.ProvisionEventListener;
 import org.thingai.app.meo.callback.RequestCallback;
-import org.thingai.app.meo.define.ErrorCode;
+import org.thingai.app.meo.define.MeoErr;
 import org.thingai.app.meo.entity.MeoDeviceProvision;
 import org.thingai.app.meo.handler.provision.MeoProvisionHandler;
 import org.thingai.app.meo.util.JsonUtil;
@@ -94,7 +94,7 @@ public class ProvisionRoute implements ProvisionEventListener {
     private void connect(Context ctx) {
         MeoProvisionRequest request = ctx.bodyAsClass(MeoProvisionRequest.class);
         if (request == null || isBlank(request.getBleAddress())) {
-            ctx.status(400).json(error(ErrorCode.PROV_CONNECT_FAILED, "bleAddress is required"));
+            ctx.status(400).json(error(MeoErr.PROV_CONNECT_FAILED, "bleAddress is required"));
             return;
         }
         provisionHandler.connect(request.getBleAddress(), new RequestCallback<MeoDeviceProvision>() {
@@ -113,7 +113,7 @@ public class ProvisionRoute implements ProvisionEventListener {
     private void setup(Context ctx) {
         MeoProvisionRequest request = ctx.bodyAsClass(MeoProvisionRequest.class);
         if (request == null || isBlank(request.getSsid())) {
-            ctx.status(400).json(error(ErrorCode.PROV_SETUP_FAILED, "ssid is required"));
+            ctx.status(400).json(error(MeoErr.PROV_SETUP_FAILED, "ssid is required"));
             return;
         }
         provisionHandler.setupDevice(request.getSsid(), request.getPassword(), new RequestCallback<MeoDeviceProvision>() {

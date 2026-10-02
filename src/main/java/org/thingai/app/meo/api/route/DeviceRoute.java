@@ -4,7 +4,7 @@ import io.javalin.config.JavalinConfig;
 import io.javalin.http.Context;
 import org.thingai.app.meo.api.dto.MeoDeviceResponse;
 import org.thingai.app.meo.api.dto.MeoErrorResponse;
-import org.thingai.app.meo.define.ErrorCode;
+import org.thingai.app.meo.define.MeoErr;
 import org.thingai.app.meo.entity.MeoDevice;
 import org.thingai.app.meo.handler.mngt.MeoMngtHandler;
 
@@ -44,7 +44,7 @@ public class DeviceRoute {
     private void update(Context ctx) {
         MeoDevice update = ctx.bodyAsClass(MeoDevice.class);
         if (update == null) {
-            ctx.status(400).json(new MeoErrorResponse(ErrorCode.DEVICE_UPDATE_FAILED, "request body is required"));
+            ctx.status(400).json(new MeoErrorResponse(MeoErr.DEVICE_UPDATE_FAILED, "request body is required"));
             return;
         }
         MeoDevice device = deviceHandler.updateDevice(ctx.pathParam("deviceId"), update);
@@ -72,6 +72,6 @@ public class DeviceRoute {
     }
 
     private void notFound(Context ctx) {
-        ctx.status(404).json(new MeoErrorResponse(ErrorCode.DEVICE_NOT_FOUND, "device not found"));
+        ctx.status(404).json(new MeoErrorResponse(MeoErr.DEVICE_NOT_FOUND, "device not found"));
     }
 }

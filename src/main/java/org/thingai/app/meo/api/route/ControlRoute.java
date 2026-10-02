@@ -6,17 +6,20 @@ import org.thingai.app.meo.api.dto.MeoCommandRequest;
 import org.thingai.app.meo.api.dto.MeoCommandResponse;
 import org.thingai.app.meo.api.dto.MeoErrorResponse;
 import org.thingai.app.meo.callback.RequestCallback;
-import org.thingai.app.meo.define.ErrorCode;
-import org.thingai.app.meo.handler.control.MeoControlHandler;
-import org.thingai.app.meo.handler.msg.MeoFrame;
+import org.thingai.app.meo.define.MeoErr;
+import org.thingai.app.meo.define.MeoMsgErr;
+import org.thingai.app.meo.handler.msg.MeoMsgHandler;
+import org.thingai.app.meo.define.MeoMsgFrame;
+
+import java.util.concurrent.CompletableFuture;
 
 // Device control endpoint: read or write a device cap, get the device's value back.
 public class ControlRoute {
     // Null when device MQTT failed to connect at startup; answer 503 instead of throwing.
-    private final MeoControlHandler controlHandler;
+    private final MeoMsgHandler msgHandler;
 
-    public ControlRoute(MeoControlHandler controlHandler) {
-        this.controlHandler = controlHandler;
+    public ControlRoute(MeoMsgHandler msgHandler) {
+        this.msgHandler = msgHandler;
     }
 
     public void addRoutes(JavalinConfig config) {
@@ -24,27 +27,32 @@ public class ControlRoute {
     }
 
     private void command(Context ctx) {
-        if (controlHandler == null) {
-            fail(ctx, ErrorCode.CONTROL_FAILED, "device messaging is not connected", 503);
+        if (msgHandler == null) {
+            fail(ctx, MeoMsgErr.SEND_FAILED, "device messaging is not connected", 503);
             return;
         }
         MeoCommandRequest request = ctx.bodyAsClass(MeoCommandRequest.class);
         if (request == null) {
-            fail(ctx, ErrorCode.CONTROL_FAILED, "request body is required", 400);
+            fail(ctx, MeoMsgErr.BAD_REQUEST, "request body is required", 400);
             return;
         }
 
         String deviceId = ctx.pathParam("deviceId");
         String cap = request.getCap();
-        controlHandler.sendCommand(deviceId, cap, toOp(request.getOp()), request.getValue(), new RequestCallback<Integer>() {
+        // sendDown is async; ctx.future keeps the request open until the callback answers.
+        CompletableFuture<Void> done = new CompletableFuture<>();
+        ctx.future(() -> done);
+        msgHandler.sendDown(deviceId, cap, toOp(request.getOp()), request.getValue(), new RequestCallback<Integer>() {
             @Override
             public void onResult(Integer value, String message) {
                 ctx.json(MeoCommandResponse.of(deviceId, cap, value));
+                done.complete(null);
             }
 
             @Override
             public void onFailure(int errorCode, String message) {
                 fail(ctx, errorCode, message, statusFor(errorCode));
+                done.complete(null);
             }
         });
     }
@@ -52,22 +60,22 @@ public class ControlRoute {
     // Unknown op maps to -1, which the handler rejects.
     private int toOp(String op) {
         if ("read".equals(op)) {
-            return MeoFrame.TYPE_READ;
+            return MeoMsgFrame.TYPE_READ;
         }
         if ("write".equals(op)) {
-            return MeoFrame.TYPE_WRITE;
+            return MeoMsgFrame.TYPE_WRITE;
         }
         return -1;
     }
 
     private int statusFor(int errorCode) {
-        if (errorCode == ErrorCode.DEVICE_NOT_FOUND) {
+        if (errorCode == MeoErr.DEVICE_NOT_FOUND) {
             return 404;
         }
-        if (errorCode == ErrorCode.CONTROL_TIMEOUT) {
+        if (errorCode == MeoMsgErr.TIMEOUT) {
             return 504;
         }
-        if (errorCode == ErrorCode.CONTROL_DEVICE_ERROR) {
+        if (errorCode == MeoMsgErr.HANDLE_FAILED || errorCode == MeoMsgErr.SEND_FAILED) {
             return 502;
         }
         return 400;

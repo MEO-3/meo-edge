@@ -1,4 +1,4 @@
-package org.thingai.app.meo.handler.msg;
+package org.thingai.app.meo.define;
 
 import org.junit.jupiter.api.Test;
 
@@ -11,7 +11,7 @@ class MeoFrameTest {
 
     @Test
     void writeEncodesTypeSeqAndNegativeValue() {
-        byte[] bytes = new MeoFrame(MeoFrame.TYPE_WRITE, 31, 2, -52).toBytes();
+        byte[] bytes = new MeoMsgFrame(MeoMsgFrame.TYPE_WRITE, 31, 2, -52).toBytes();
         // 001 11111 = 0x3F
         assertArrayEquals(new byte[]{0x3F, 0x02, (byte) 0xCC, (byte) 0xFF}, bytes);
     }
@@ -19,8 +19,8 @@ class MeoFrameTest {
     @Test
     void parsesErrReply() {
         // 011 00101 = 0x65: ERR, seq 5, error code 4
-        MeoFrame frame = MeoFrame.parse(new byte[]{0x65, 0x00, 0x04, 0x00});
-        assertEquals(MeoFrame.TYPE_ERR, frame.getType());
+        MeoMsgFrame frame = MeoMsgFrame.parse(new byte[]{0x65, 0x00, 0x04, 0x00});
+        assertEquals(MeoMsgFrame.TYPE_ERR, frame.getType());
         assertEquals(5, frame.getSeq());
         assertEquals(4, frame.getValue());
     }
@@ -28,17 +28,17 @@ class MeoFrameTest {
     @Test
     void parsesEventWithHighIdx() {
         // 100 00000 = 0x80: EVENT, idx 255, value 235
-        MeoFrame frame = MeoFrame.parse(new byte[]{(byte) 0x80, (byte) 0xFF, (byte) 0xEB, 0x00});
-        assertEquals(MeoFrame.TYPE_EVENT, frame.getType());
+        MeoMsgFrame frame = MeoMsgFrame.parse(new byte[]{(byte) 0x80, (byte) 0xFF, (byte) 0xEB, 0x00});
+        assertEquals(MeoMsgFrame.TYPE_EVENT, frame.getType());
         assertEquals(255, frame.getIdx());
         assertEquals(235, frame.getValue());
     }
 
     @Test
     void rejectsBadInput() {
-        assertThrows(IllegalArgumentException.class, () -> new MeoFrame(MeoFrame.TYPE_WRITE, 0, 0, 32768));
-        assertThrows(IllegalArgumentException.class, () -> new MeoFrame(MeoFrame.TYPE_READ, 32, 0, 0));
-        assertThrows(IllegalArgumentException.class, () -> MeoFrame.parse(new byte[]{(byte) 0xA0, 0, 0, 0}));
-        assertThrows(IllegalArgumentException.class, () -> MeoFrame.parse(new byte[3]));
+        assertThrows(IllegalArgumentException.class, () -> new MeoMsgFrame(MeoMsgFrame.TYPE_WRITE, 0, 0, 32768));
+        assertThrows(IllegalArgumentException.class, () -> new MeoMsgFrame(MeoMsgFrame.TYPE_READ, 32, 0, 0));
+        assertThrows(IllegalArgumentException.class, () -> MeoMsgFrame.parse(new byte[]{(byte) 0xA0, 0, 0, 0}));
+        assertThrows(IllegalArgumentException.class, () -> MeoMsgFrame.parse(new byte[3]));
     }
 }

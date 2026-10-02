@@ -6,7 +6,7 @@ response bodies are JSON. CORS is open (any host).
 ## Error model
 
 Failed requests return an HTTP error status with a `MeoErrorResponse` body. `errorCode` is a
-MEO application code (see `define/ErrorCode.java`), independent of the HTTP status:
+MEO application code (see `define/MeoErr.java`; control errors use `define/MeoMsgErr.java`), independent of the HTTP status:
 
 ```json
 { "errorCode": 200, "error": "device not found" }
@@ -18,10 +18,12 @@ MEO application code (see `define/ErrorCode.java`), independent of the HTTP stat
 | 100–104 | Provisioning: generic / scan / connect / setup / persist failed |
 | 200 | Device not found |
 | 201 | Device update failed |
-| 300 | Control failed (bad request, or messaging unavailable) |
-| 301 | Capability not supported by the device |
-| 302 | Device did not reply in time |
-| 303 | Device rejected or failed to run the command |
+| 1 | Control: bad request |
+| 2 | Control: device has no such capability |
+| 3 | Control: device failed to run the command |
+| 4 | Control: capability does not support this op |
+| 5 | Control: device did not reply in time (edge only) |
+| 6 | Control: could not send, or messaging unavailable (edge only) |
 
 ## Health
 
@@ -236,6 +238,6 @@ the device is the final authority: an unimplemented id is rejected by the firmwa
 | `503` | 300 | Device messaging is not connected (MQTT unavailable at startup) |
 | `504` | 302 | Device did not reply within 10 s |
 
-The device-side reason behind `502` comes from the firmware's error code (`define/MeoCmdErrCode.java`):
+The device-side reason behind `502` comes from the firmware's error code (`define/MeoMsgErr.java`):
 1 malformed request, 2 unknown capability, 3 handler failed. Code 2 is surfaced as `400`/301 rather
 than `502`, since the caller — not the device — has to fix it.
