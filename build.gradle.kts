@@ -27,7 +27,8 @@ dependencies {
     implementation("org.slf4j:slf4j-simple:2.0.16")
     implementation("com.google.code.gson:gson:2.13.2")
 
-    implementation("io.javalin:javalin:7.2.2")
+    implementation("io.javalin:javalin:7.2.3")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:2.2.20") // Javalin runtime
     implementation("org.jmdns:jmdns:3.5.12")
 
     implementation("com.zaxxer:HikariCP:5.1.0")
