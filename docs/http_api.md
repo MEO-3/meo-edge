@@ -66,7 +66,7 @@ Update a device's **user metadata only**: `name`, `description`. Identity (`devi
 
 ### `DELETE /api/v1/devices/{deviceId}`
 
-Delete a device and its cap rows. Returns the deleted `MeoDeviceResponse`; `404` if unknown.
+Delete a device and its caps. Returns the deleted `MeoDeviceResponse`; `404` if unknown.
 
 ## Provisioning
 

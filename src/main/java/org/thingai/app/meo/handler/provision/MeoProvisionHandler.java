@@ -238,23 +238,13 @@ public class MeoProvisionHandler {
         return device;
     }
 
-    // Replaces cap rows (delete-all then insert) so re-provisioning refreshes, not accumulates.
-    // idx is the cap's position in the device report — its id on the binary wire.
+    // Upserts the device's cap row so re-provisioning replaces the list, not accumulates.
     private void persistCaps(String deviceId, String[] caps) {
-        dao.deleteByColumn(MeoDeviceCap.class, "deviceId", deviceId);
-        if (caps == null || caps.length == 0) {
-            return;
-        }
-        MeoDeviceCap[] rows = new MeoDeviceCap[caps.length];
-        for (int i = 0; i < caps.length; i++) {
-            MeoDeviceCap row = new MeoDeviceCap();
-            row.setDeviceId(deviceId);
-            row.setCap(caps[i]);
-            row.setIdx(i);
-            rows[i] = row;
-        }
-        dao.insertBatch(rows);
-        ILog.i(TAG, "persistCaps", "deviceId=" + deviceId, "count=" + caps.length);
+        MeoDeviceCap row = new MeoDeviceCap();
+        row.setDeviceId(deviceId);
+        row.setCaps(JsonUtil.toJson(caps != null ? caps : new String[0]));
+        dao.insertOrUpdate(row);
+        ILog.i(TAG, "persistCaps", "deviceId=" + deviceId, "count=" + (caps != null ? caps.length : 0));
     }
 
     // Sets status/message, then emits the session as a provision.status event.

@@ -2,11 +2,10 @@ package org.thingai.app.meo.handler.mngt;
 
 import org.thingai.app.meo.entity.MeoDevice;
 import org.thingai.app.meo.entity.MeoDeviceCap;
+import org.thingai.app.meo.util.JsonUtil;
 import org.thingai.base.log.ILog;
 import org.thingai.base.dao.Dao;
 
-import java.util.Arrays;
-import java.util.Comparator;
 
 public class MeoMngtHandler {
     private static final String TAG = "MeoMngtHandler";
@@ -56,15 +55,12 @@ public class MeoMngtHandler {
         return existing;
     }
 
-    // Cap keys in wire order (index = idx); SQLite row order isn't guaranteed.
+    // Cap keys in wire order (index = idx).
     public String[] getCaps(String deviceId) {
         MeoDeviceCap[] rows = dao.query(MeoDeviceCap.class, "deviceId", deviceId);
-        if (rows == null) {
+        if (rows == null || rows.length == 0) {
             return new String[0];
         }
-        return Arrays.stream(rows)
-                .sorted(Comparator.comparingInt(MeoDeviceCap::getIdx))
-                .map(MeoDeviceCap::getCap)
-                .toArray(String[]::new);
+        return JsonUtil.fromJson(rows[0].getCaps(), String[].class);
     }
 }
