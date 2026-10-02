@@ -49,3 +49,5 @@
 
 # Local runtime database (MEO_DATA_DIR), including SQLite's -wal/-shm sidecars
 data/*.db*
+
+.agents/local/docs
