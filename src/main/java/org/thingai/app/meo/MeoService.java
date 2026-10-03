@@ -6,8 +6,10 @@ import org.eclipse.paho.mqttv5.client.MqttConnectionOptions;
 import org.eclipse.paho.mqttv5.client.persist.MemoryPersistence;
 import org.thingai.app.meo.blemqtt.BlemqttClient;
 import org.thingai.app.meo.blemqtt.BlemqttConfig;
+import org.thingai.app.meo.util.DaoKvUtil;
 import org.thingai.app.meo.entity.MeoDevice;
 import org.thingai.app.meo.entity.MeoDeviceCap;
+import org.thingai.app.meo.handler.cloud.MeoCloudHandler;
 import org.thingai.app.meo.handler.msg.MeoMsgHandler;
 import org.thingai.app.meo.handler.mngt.MeoMngtHandler;
 import org.thingai.app.meo.handler.provision.MeoProvisionHandler;
@@ -30,6 +32,7 @@ public class MeoService extends Service {
     private MeoMngtHandler deviceHandler;
     private MeoProvisionHandler provisionHandler;
     private MeoMsgHandler msgHandler;
+    private MeoCloudHandler cloudHandler;
 
     protected MeoService() {
         super("MeoService");
@@ -49,7 +52,8 @@ public class MeoService extends Service {
         dao = new DaoSqlite(appDir + "/meo.db");
         dao.initDao(new Class[]{
                 MeoDevice.class,
-                MeoDeviceCap.class
+                MeoDeviceCap.class,
+                DaoKvUtil.class
         });
         deviceHandler = new MeoMngtHandler(dao);
 
@@ -84,10 +88,17 @@ public class MeoService extends Service {
         } catch (Exception e) {
             ILog.e(TAG, "device mqtt connect failed", e);
         }
+
+        // Last, and on its own thread: the local stack above must work with no cloud at all.
+        cloudHandler = new MeoCloudHandler(dao);
+        cloudHandler.start();
     }
 
     @Override
     protected void onServiceShutdown() {
+        if (cloudHandler != null) {
+            cloudHandler.stop();
+        }
         if (blemqttClient != null) {
             try {
                 blemqttClient.disconnect();
