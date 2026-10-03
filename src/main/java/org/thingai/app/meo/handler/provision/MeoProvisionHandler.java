@@ -6,6 +6,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.thingai.app.meo.blemqtt.BlemqttClient;
 import org.thingai.app.meo.blemqtt.BlemqttCommand;
+import org.thingai.app.meo.blemqtt.BlemqttConfig;
 import org.thingai.app.meo.blemqtt.BlemqttError;
 import org.thingai.app.meo.blemqtt.BlemqttEvent;
 import org.thingai.app.meo.blemqtt.BlemqttOp;
@@ -66,9 +67,29 @@ public class MeoProvisionHandler {
     // Optional SSE observer; emits are fire-and-forget, called from request or MQTT threads.
     private volatile ProvisionEventListener eventListener;
 
-    public MeoProvisionHandler(BlemqttClient blemqttClient, Dao dao) {
-        this.blemqttClient = blemqttClient;
+    public MeoProvisionHandler(Dao dao, String brokerUrl) {
+        BlemqttConfig config = new BlemqttConfig();
+        config.setBrokerUrl(brokerUrl);
+        this.blemqttClient = new BlemqttClient(config);
         this.dao = dao;
+    }
+
+    public void start() {
+        try {
+            blemqttClient.connect();
+            ILog.d(TAG, "blemqtt connect");
+        } catch (Exception e) {
+            ILog.e(TAG, "blemqtt connect failed", e);
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void stop() {
+        try {
+            blemqttClient.disconnect();
+        } catch (Exception e) {
+            ILog.w(TAG, "blemqtt disconnect failed", e);
+        }
     }
 
     public void setEventListener(ProvisionEventListener listener) {

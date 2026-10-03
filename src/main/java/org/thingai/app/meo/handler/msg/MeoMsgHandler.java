@@ -2,6 +2,8 @@ package org.thingai.app.meo.handler.msg;
 
 import org.eclipse.paho.mqttv5.client.IMqttMessageListener;
 import org.eclipse.paho.mqttv5.client.MqttClient;
+import org.eclipse.paho.mqttv5.client.MqttConnectionOptions;
+import org.eclipse.paho.mqttv5.client.persist.MemoryPersistence;
 import org.eclipse.paho.mqttv5.common.MqttException;
 import org.eclipse.paho.mqttv5.common.MqttMessage;
 import org.eclipse.paho.mqttv5.common.MqttSubscription;
@@ -25,6 +27,7 @@ public class MeoMsgHandler implements IMqttMessageListener {
     private static final long REPLY_TIMEOUT_MS = 10_000;
     private static final int DOWN_QOS = 1;
     private static final int UP_QOS = 0;
+    private static final long MQTT_SESSION_EXPIRY_SECONDS = 300;
 
     private final MqttClient mqttClient;
     private final MeoMngtHandler deviceHandler;
@@ -34,16 +37,32 @@ public class MeoMsgHandler implements IMqttMessageListener {
     // seqs per device, max 31
     private final Map<String, AtomicInteger> seqs = new ConcurrentHashMap<>();
 
-    public MeoMsgHandler(MqttClient mqttClient, MeoMngtHandler deviceHandler) {
-        this.mqttClient = mqttClient;
+    // Own connection to the broker — a separate protocol from blemqtt.
+    public MeoMsgHandler(MeoMngtHandler deviceHandler, String brokerUrl) throws MqttException {
+        this.mqttClient = new MqttClient(brokerUrl, "meo-" + System.currentTimeMillis(), new MemoryPersistence());
         this.deviceHandler = deviceHandler;
     }
 
     public void start() throws MqttException {
+        MqttConnectionOptions options = new MqttConnectionOptions();
+        options.setAutomaticReconnect(true);
+        options.setCleanStart(false); // disable this so topics don't have to re-subscribe.
+        options.setSessionExpiryInterval(MQTT_SESSION_EXPIRY_SECONDS);
+        mqttClient.connect(options);
+        ILog.i(TAG, "start", "connected", mqttClient.getServerURI());
+
         mqttClient.subscribe(
                 new MqttSubscription[]{new MqttSubscription(MeoTopic.UP_WILDCARD, UP_QOS)},
                 new IMqttMessageListener[]{this::messageArrived});
         ILog.i(TAG, "start", "subscribed", MeoTopic.UP_WILDCARD);
+    }
+
+    public void stop() {
+        try {
+            mqttClient.disconnect();
+        } catch (MqttException e) {
+            ILog.w(TAG, "device mqtt disconnect failed", e);
+        }
     }
 
     public void sendDown(String deviceId, String cap, int op, int value, RequestCallback<Integer> callback) {

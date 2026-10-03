@@ -1,11 +1,6 @@
 package org.thingai.app.meo;
 
 
-import org.eclipse.paho.mqttv5.client.MqttClient;
-import org.eclipse.paho.mqttv5.client.MqttConnectionOptions;
-import org.eclipse.paho.mqttv5.client.persist.MemoryPersistence;
-import org.thingai.app.meo.blemqtt.BlemqttClient;
-import org.thingai.app.meo.blemqtt.BlemqttConfig;
 import org.thingai.app.meo.util.DaoKvUtil;
 import org.thingai.app.meo.entity.MeoDevice;
 import org.thingai.app.meo.entity.MeoDeviceCap;
@@ -23,12 +18,9 @@ import java.io.File;
 public class MeoService extends Service {
     private static final String TAG = "MeoService";
 
-    // Just needs to outlive a reconnect (Paho backs off to 128s); client id is per-run.
-    private static final long MQTT_SESSION_EXPIRY_SECONDS = 300;
+    private static final String DEFAULT_LOCAL_MQTT_BROKER = "tcp://localhost:1883";
 
     private Dao dao;
-    private BlemqttClient blemqttClient;
-    private MqttClient deviceMqttClient;
     private MeoMngtHandler deviceHandler;
     private MeoProvisionHandler provisionHandler;
     private MeoMsgHandler msgHandler;
@@ -57,39 +49,24 @@ public class MeoService extends Service {
         });
         deviceHandler = new MeoMngtHandler(dao);
 
-        BlemqttConfig blemqttConfig = new BlemqttConfig();
         String broker = System.getenv("MEO_MQTT_BROKER");
-        if (broker != null && !broker.trim().isEmpty()) {
-            blemqttConfig.setBrokerUrl(broker);
-        }
-        blemqttClient = new BlemqttClient(blemqttConfig);
+        String brokerUrl = broker != null && !broker.trim().isEmpty() ? broker : DEFAULT_LOCAL_MQTT_BROKER;
+
         try {
-            blemqttClient.connect();
-            ILog.d(TAG, "blemqtt connect");
+            provisionHandler = new MeoProvisionHandler(dao, brokerUrl);
+            provisionHandler.start();
         } catch (Exception e) {
-            ILog.e(TAG, "blemqtt connect failed", e);
+            ILog.e(TAG, "provision mqtt connect failed", e);
         }
-        // TODO: Error handling blemqtt connect failed here
-        provisionHandler = new MeoProvisionHandler(blemqttClient, dao);
 
-        // Own connection to the same broker — a separate protocol from blemqtt.
         try {
-            deviceMqttClient = new MqttClient(blemqttConfig.getBrokerUrl(),
-                    "meo-" + System.currentTimeMillis(), new MemoryPersistence());
-            MqttConnectionOptions options = new MqttConnectionOptions();
-            options.setAutomaticReconnect(true);
-            options.setCleanStart(false); // disable this so topics don't have to re-subscribe.
-            options.setSessionExpiryInterval(MQTT_SESSION_EXPIRY_SECONDS);
-            deviceMqttClient.connect(options);
-
-            msgHandler = new MeoMsgHandler(deviceMqttClient, deviceHandler);
+            msgHandler = new MeoMsgHandler(deviceHandler, brokerUrl);
             msgHandler.start();
-            ILog.i(TAG, "device mqtt connected", blemqttConfig.getBrokerUrl());
         } catch (Exception e) {
             ILog.e(TAG, "device mqtt connect failed", e);
         }
 
-        // Last, and on its own thread: the local stack above must work with no cloud at all.
+        // no exception here; edge can work without cloud
         cloudHandler = new MeoCloudHandler(dao);
         cloudHandler.start();
     }
@@ -99,19 +76,11 @@ public class MeoService extends Service {
         if (cloudHandler != null) {
             cloudHandler.stop();
         }
-        if (blemqttClient != null) {
-            try {
-                blemqttClient.disconnect();
-            } catch (Exception e) {
-                ILog.w(TAG, "blemqtt disconnect failed", e);
-            }
+        if (provisionHandler != null) {
+            provisionHandler.stop();
         }
-        if (deviceMqttClient != null) {
-            try {
-                deviceMqttClient.disconnect();
-            } catch (Exception e) {
-                ILog.w(TAG, "device mqtt disconnect failed", e);
-            }
+        if (msgHandler != null) {
+            msgHandler.stop();
         }
         if (dao instanceof DaoSqlite) {
             ((DaoSqlite) dao).close();
