@@ -6,8 +6,20 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
 import java.util.Enumeration;
+import java.util.HexFormat;
 
 public class NetUtil {
+    public static synchronized String lanMac() {
+        try (DatagramSocket socket = new DatagramSocket()) {
+            socket.connect(new InetSocketAddress("8.8.8.8", 53));
+            NetworkInterface nic = NetworkInterface.getByInetAddress(socket.getLocalAddress());
+            byte[] mac = nic != null ? nic.getHardwareAddress() : null;
+            return mac != null ? HexFormat.ofDelimiter(":").withUpperCase().formatHex(mac) : null;
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
     public static synchronized String lanIpv4() {
         try (DatagramSocket socket = new DatagramSocket()) {
             socket.connect(new InetSocketAddress("8.8.8.8", 53));
