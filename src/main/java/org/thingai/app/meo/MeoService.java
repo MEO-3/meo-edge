@@ -21,7 +21,7 @@ public class MeoService extends Service {
     private static final String DEFAULT_LOCAL_MQTT_BROKER = "tcp://localhost:1883";
 
     private Dao dao;
-    private MeoMngtHandler deviceHandler;
+    private MeoMngtHandler mngtHandler;
     private MeoProvisionHandler provisionHandler;
     private MeoMsgHandler msgHandler;
     private MeoCloudHandler cloudHandler;
@@ -47,7 +47,7 @@ public class MeoService extends Service {
                 MeoDeviceCap.class,
                 DaoKvUtil.class
         });
-        deviceHandler = new MeoMngtHandler(dao);
+        mngtHandler = new MeoMngtHandler(dao);
 
         String broker = System.getenv("MEO_MQTT_BROKER");
         String brokerUrl = broker != null && !broker.trim().isEmpty() ? broker : DEFAULT_LOCAL_MQTT_BROKER;
@@ -60,14 +60,15 @@ public class MeoService extends Service {
         }
 
         try {
-            msgHandler = new MeoMsgHandler(deviceHandler, brokerUrl);
+            msgHandler = new MeoMsgHandler(mngtHandler, brokerUrl);
             msgHandler.start();
         } catch (Exception e) {
             ILog.e(TAG, "device mqtt connect failed", e);
         }
 
         // no exception here; edge can work without cloud
-        cloudHandler = new MeoCloudHandler(dao);
+        // di: msgHandler, provisionHandler, mngtHandler
+        cloudHandler = new MeoCloudHandler(dao, msgHandler, provisionHandler, mngtHandler);
         cloudHandler.start();
     }
 
@@ -87,8 +88,8 @@ public class MeoService extends Service {
         }
     }
 
-    public MeoMngtHandler deviceHandler() {
-        return deviceHandler;
+    public MeoMngtHandler mngtHandler() {
+        return mngtHandler;
     }
 
     public MeoProvisionHandler provisionHandler() {

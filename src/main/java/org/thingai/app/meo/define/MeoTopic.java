@@ -14,6 +14,10 @@ public final class MeoTopic {
         return CLOUD_PREFIX + edgeId + "/status";
     }
 
+    public static String toTopicCloudRes(String edgeId, String requestId) {
+        return CLOUD_PREFIX + edgeId + "/res/" + requestId;
+    }
+
     public static String toTopicCloudReq(String edgeId) {
         return CLOUD_PREFIX + edgeId + "/req";
     }

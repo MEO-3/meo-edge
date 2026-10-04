@@ -7,11 +7,11 @@ This repository is the MEO 3 edge service (the "hub") for IoT education hardware
 Terms: **gateway** = the hardware box; **edge** = the gateway plus the services running on it (this repo, the Rust BLE service, the MQTT broker). It is a single Gradle project (`meo-edge`), not a multi-module build. Service code lives under `src/main/java/org/thingai/app/meo`:
 
 - `Main.java` / `MeoService.java` — entry point; starts a Javalin HTTP server on `MEO_SERVICE_PORT` (default `7070`).
-- `api/` — Javalin route registration. Keep routes thin and delegate to handlers.
+- `localapi/` — Javalin route registration. Keep routes thin and delegate to handlers.
 - `handler/` — business logic, one subpackage per concern: `mngt/` (`MeoMngtHandler`, device registry), `provision/` (`MeoProvisionHandler`, `ProvisionBleUuid`), `msg/` (`MeoMsgHandler`), `cloud/` (`MeoCloudHandler`). Callback interfaces live in `callback/`.
 - `blemqtt/` — MQTT client (`BlemqttClient`) that drives the Rust BLE service over the generic `blemqtt` protocol.
 - `define/` — enums and shared constants (`MeoErr`, `MeoEdgeMsgFrame`, `MeoCloudMsgFrame`, `MeoCloudMsgOpcode`, `MeoTopic`, `MeoDevProvisionStatus`, `MeoDevTransportType`).
-- `api/dto/` — HTTP request/response shapes (`DeviceResponse`, `CommandRequest`, ...).
+- `localapi/dto/` — HTTP request/response shapes (`DeviceResponse`, `CommandRequest`, ...).
 - `entity/` — DTO/entity classes (`MeoDevice`, `MeoDeviceProvision`, ...).
 - `util/` — helpers (`ByteUtil`, `JsonUtil`, `NetUtil`).
 
@@ -41,7 +41,7 @@ Naming:
 - `Meo` prefix — contracts shared across layers (device, edge, cloud): `MeoErr`, `MeoTopic`, `MeoMsg*Frame`, handlers, entities.
 - `MeoDev*` — constants describing a device (`MeoDevProvisionStatus`, `MeoDevTransportType`).
 - `MeoEdgeMsgFrame` / `MeoCloudMsgFrame` — wire frames per hop: device ↔ edge, edge ↔ cloud.
-- No prefix — edge-internal only: `api/dto/` classes, `ProvisionBleUuid`.
+- No prefix — edge-internal only: `localapi/dto/` classes, `ProvisionBleUuid`.
 - `MeoErr` codes are ranged by where the error occurred: 0 generic, 1–99 device, 100–199 edge, 200–299 cloud.
 
 Prefer explicit DTO/entity classes over raw JSON maps for stable service contracts. Keep comments short and useful, especially around hardware/BLE protocol details.

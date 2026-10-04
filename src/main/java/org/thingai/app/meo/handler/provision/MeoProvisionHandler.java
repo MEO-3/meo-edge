@@ -18,7 +18,7 @@ import org.thingai.app.meo.localapi.dto.DeviceResponse;
 import org.thingai.app.meo.entity.MeoDevice;
 import org.thingai.app.meo.entity.MeoDeviceCap;
 import org.thingai.app.meo.entity.MeoDeviceProvision;
-import org.thingai.app.meo.define.MeoEdgeMsgFrame;
+import org.thingai.app.meo.handler.msg.EdgeMsgDto;
 import org.thingai.app.meo.callback.ProvisionEventListener;
 import org.thingai.app.meo.callback.RequestCallback;
 import org.thingai.app.meo.util.JsonUtil;
@@ -336,7 +336,7 @@ public class MeoProvisionHandler {
             return new String[0];
         }
         JsonArray array = element.getAsJsonArray();
-        if (array.size() > MeoEdgeMsgFrame.MAX_IDX + 1) {
+        if (array.size() > EdgeMsgDto.MAX_IDX + 1) {
             throw new IllegalArgumentException("too many caps for a u8 idx: " + array.size());
         }
         String[] caps = new String[array.size()];

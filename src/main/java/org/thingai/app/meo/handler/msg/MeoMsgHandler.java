@@ -9,7 +9,6 @@ import org.eclipse.paho.mqttv5.common.MqttMessage;
 import org.eclipse.paho.mqttv5.common.MqttSubscription;
 import org.thingai.app.meo.callback.RequestCallback;
 import org.thingai.app.meo.define.MeoErr;
-import org.thingai.app.meo.define.MeoEdgeMsgFrame;
 import org.thingai.app.meo.define.MeoTopic;
 import org.thingai.app.meo.handler.mngt.MeoMngtHandler;
 import org.thingai.base.log.ILog;
@@ -33,7 +32,7 @@ public class MeoMsgHandler implements IMqttMessageListener {
     private final MeoMngtHandler deviceHandler;
 
     // Keyed by deviceId+seq so a stray reply can't complete another device's request.
-    private final Map<String, CompletableFuture<MeoEdgeMsgFrame>> pendingReplies = new ConcurrentHashMap<>();
+    private final Map<String, CompletableFuture<EdgeMsgDto>> pendingReplies = new ConcurrentHashMap<>();
     // seqs per device, max 31
     private final Map<String, AtomicInteger> seqs = new ConcurrentHashMap<>();
 
@@ -67,7 +66,7 @@ public class MeoMsgHandler implements IMqttMessageListener {
 
     public void sendDown(String deviceId, String cap, int op, int value, RequestCallback<Integer> callback) {
         // validate msg frame
-        if (op != MeoEdgeMsgFrame.TYPE_READ && op != MeoEdgeMsgFrame.TYPE_WRITE) {
+        if (op != EdgeMsgDto.TYPE_READ && op != EdgeMsgDto.TYPE_WRITE) {
             callback.onFailure(MeoErr.BAD_REQUEST, "op must be read or write");
             return;
         }
@@ -87,9 +86,9 @@ public class MeoMsgHandler implements IMqttMessageListener {
         }
 
         // update seq for device, wrap at 31, and create pending future
-        int seq = seqs.computeIfAbsent(deviceId, id -> new AtomicInteger()).getAndIncrement() & MeoEdgeMsgFrame.MAX_SEQ;
+        int seq = seqs.computeIfAbsent(deviceId, id -> new AtomicInteger()).getAndIncrement() & EdgeMsgDto.MAX_SEQ;
         String key = pendingKey(deviceId, seq);
-        CompletableFuture<MeoEdgeMsgFrame> future = new CompletableFuture<>();
+        CompletableFuture<EdgeMsgDto> future = new CompletableFuture<>();
         if (pendingReplies.putIfAbsent(key, future) != null) {
             callback.onFailure(MeoErr.MSG_SEND_FAILED, "too many commands in flight for " + deviceId);
             return;
@@ -97,7 +96,7 @@ public class MeoMsgHandler implements IMqttMessageListener {
 
         // send msg down
         try {
-            MqttMessage message = new MqttMessage(new MeoEdgeMsgFrame(op, seq, idx, value).toBytes());
+            MqttMessage message = new MqttMessage(new EdgeMsgDto(op, seq, idx, value).toBytes());
             message.setQos(DOWN_QOS);
             ILog.d(TAG, "send", deviceId, "type=" + op, "seq=" + seq, "idx=" + idx, "value=" + value);
             mqttClient.publish(MeoTopic.toTopicDown(deviceId), message);
@@ -114,7 +113,7 @@ public class MeoMsgHandler implements IMqttMessageListener {
             if (err != null) {
                 ILog.w(TAG, "sendDown", "no reply", deviceId, cap);
                 callback.onFailure(MeoErr.MSG_TIMEOUT, "device did not reply within " + REPLY_TIMEOUT_MS + "ms");
-            } else if (reply.getType() == MeoEdgeMsgFrame.TYPE_ERR) {
+            } else if (reply.getType() == EdgeMsgDto.TYPE_ERR) {
                 ILog.w(TAG, "sendDown", deviceId, cap, "device error=" + reply.getValue());
                 callback.onFailure(reply.getValue(), "device error " + reply.getValue());
             } else {
@@ -136,25 +135,25 @@ public class MeoMsgHandler implements IMqttMessageListener {
             return;
         }
 
-        MeoEdgeMsgFrame frame;
+        EdgeMsgDto frame;
         try {
-            frame = MeoEdgeMsgFrame.parse(message.getPayload());
+            frame = EdgeMsgDto.parse(message.getPayload());
         } catch (IllegalArgumentException e) {
             ILog.w(TAG, "up", "dropping malformed frame", topic, e.getMessage());
             return;
         }
 
         int type = frame.getType();
-        if (type == MeoEdgeMsgFrame.TYPE_EVENT) {
+        if (type == EdgeMsgDto.TYPE_EVENT) {
             ILog.d(TAG, "event", deviceId, "idx=" + frame.getIdx(), "value=" + frame.getValue());
             return;
         }
-        if (type != MeoEdgeMsgFrame.TYPE_OK && type != MeoEdgeMsgFrame.TYPE_ERR) {
+        if (type != EdgeMsgDto.TYPE_OK && type != EdgeMsgDto.TYPE_ERR) {
             ILog.w(TAG, "up", "dropping unexpected frame type", deviceId, "type=" + type);
             return;
         }
 
-        CompletableFuture<MeoEdgeMsgFrame> pending = pendingReplies.remove(pendingKey(deviceId, frame.getSeq()));
+        CompletableFuture<EdgeMsgDto> pending = pendingReplies.remove(pendingKey(deviceId, frame.getSeq()));
         if (pending == null) {
             ILog.d(TAG, "reply", "no pending request", deviceId, "seq=" + frame.getSeq());
             return;

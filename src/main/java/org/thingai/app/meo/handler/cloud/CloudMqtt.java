@@ -2,6 +2,7 @@ package org.thingai.app.meo.handler.cloud;
 
 import org.eclipse.paho.mqttv5.client.MqttCallback;
 import org.eclipse.paho.mqttv5.client.MqttClient;
+import org.eclipse.paho.mqttv5.client.MqttClientException;
 import org.eclipse.paho.mqttv5.client.MqttConnectionOptions;
 import org.eclipse.paho.mqttv5.client.persist.MemoryPersistence;
 import org.eclipse.paho.mqttv5.common.MqttException;
@@ -48,6 +49,17 @@ public class CloudMqtt {
         this.statusTopic = statusTopic;
         this.client = client;
         ILog.i(TAG, "link", "connected", "edgeId=" + edgeId);
+    }
+
+    // Publishes one JSON message on the cloud link; throws when the link is closed.
+    public void publish(String topic, String json) throws MqttException {
+        MqttClient client = this.client;
+        if (client == null) {
+            throw new MqttException(MqttClientException.REASON_CODE_CLIENT_NOT_CONNECTED);
+        }
+        MqttMessage message = new MqttMessage(json.getBytes(StandardCharsets.UTF_8));
+        message.setQos(QOS);
+        client.publish(topic, message);
     }
 
     public boolean isOpen() {

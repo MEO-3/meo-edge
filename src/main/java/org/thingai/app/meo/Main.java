@@ -14,7 +14,7 @@ public class Main {
         Javalin.create(config -> {
             config.jsonMapper(new JavalinGson());
             config.bundledPlugins.enableCors(cors -> cors.addRule(it -> it.anyHost()));
-            new Route(config, meoService.deviceHandler(), meoService.provisionHandler(),
+            new Route(config, meoService.mngtHandler(), meoService.provisionHandler(),
                     meoService.msgHandler()).addRoutes();
         }).start(getPort());
     }
