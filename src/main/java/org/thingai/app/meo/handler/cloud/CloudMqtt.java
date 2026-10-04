@@ -53,12 +53,16 @@ public class CloudMqtt {
 
     // Publishes one JSON message on the cloud link; throws when the link is closed.
     public void publish(String topic, String json) throws MqttException {
+        publish(topic, json, QOS);
+    }
+
+    public void publish(String topic, String json, int qos) throws MqttException {
         MqttClient client = this.client;
         if (client == null) {
             throw new MqttException(MqttClientException.REASON_CODE_CLIENT_NOT_CONNECTED);
         }
         MqttMessage message = new MqttMessage(json.getBytes(StandardCharsets.UTF_8));
-        message.setQos(QOS);
+        message.setQos(qos);
         client.publish(topic, message);
     }
 

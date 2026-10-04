@@ -7,6 +7,7 @@ import org.eclipse.paho.mqttv5.client.MqttDisconnectResponse;
 import org.eclipse.paho.mqttv5.common.MqttException;
 import org.eclipse.paho.mqttv5.common.MqttMessage;
 import org.eclipse.paho.mqttv5.common.packet.MqttProperties;
+import org.thingai.app.meo.callback.MsgEventListener;
 import org.thingai.app.meo.callback.RequestCallback;
 import org.thingai.app.meo.define.MeoEdgeMsgOpcode;
 import org.thingai.app.meo.define.MeoErr;
@@ -24,6 +25,7 @@ import java.nio.charset.StandardCharsets;
 
 public class MeoCloudHandler {
     private static final String TAG = "MeoCloudHandler";
+    private static final int EVENT_QOS = 0;
 
     private final CloudMqtt cloudMqtt = new CloudMqtt();
     private final CloudRegister cloudRegister;
@@ -51,6 +53,7 @@ public class MeoCloudHandler {
             public void onRegisterSuccess(String edgeId, String secret) {
                 ILog.w(TAG, "onRegisterSuccess", "edgeId=" + edgeId);
                 connectMqtt(edgeId, secret, new CloudMqttCallback());
+                msgHandler.registerMsgListener(new CloudEventForwarder());
             }
 
             @Override
@@ -177,6 +180,18 @@ public class MeoCloudHandler {
 
         @Override
         public void authPacketArrived(int reasonCode, MqttProperties properties) {
+        }
+    }
+
+    private class CloudEventForwarder implements MsgEventListener {
+        @Override
+        public void onEvent(String deviceId, String cap, int value) {
+            String topic = MeoTopic.CLOUD_PREFIX + cloudRegister.edgeId() + "/event/" + deviceId;
+            try {
+                cloudMqtt.publish(topic, JsonUtil.toJson(new CloudMqttDto.Event(cap, value)), EVENT_QOS);
+            } catch (MqttException e) {
+                ILog.w(TAG, "event", "dropping event", deviceId, String.valueOf(e));
+            }
         }
     }
 

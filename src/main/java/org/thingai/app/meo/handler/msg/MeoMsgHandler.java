@@ -6,6 +6,7 @@ import org.eclipse.paho.mqttv5.common.MqttException;
 import org.eclipse.paho.mqttv5.common.MqttMessage;
 import org.eclipse.paho.mqttv5.common.MqttSubscription;
 import org.eclipse.paho.mqttv5.common.packet.MqttProperties;
+import org.thingai.app.meo.callback.MsgEventListener;
 import org.thingai.app.meo.callback.RequestCallback;
 import org.thingai.app.meo.define.MeoEdgeMsgOpcode;
 import org.thingai.app.meo.define.MeoErr;
@@ -33,7 +34,7 @@ public class MeoMsgHandler {
 
     private final MqttClient mqttClient;
     private final Dao dao;
-    private final IMqttMessageListener[] msgListener = new IMqttMessageListener[0];
+    private volatile MsgEventListener msgListener;
 
     private final Map<String, CompletableFuture<EdgeMsgDto>> pendingReplies = new ConcurrentHashMap<>();
     private final Map<String, AtomicInteger> seqs = new ConcurrentHashMap<>();
@@ -59,7 +60,7 @@ public class MeoMsgHandler {
 
         mqttClient.subscribe(new MqttSubscription[]{
                 new MqttSubscription(MeoTopic.UP_WILDCARD, UP_QOS)
-        }, msgListener);
+        });
         ILog.i(TAG, "start", "subscribed", MeoTopic.UP_WILDCARD);
     }
 
@@ -71,14 +72,8 @@ public class MeoMsgHandler {
         }
     }
 
-    public void registerMsgListener(IMqttMessageListener listener) {
-        if (listener != null) {
-            synchronized (msgListener) {
-                IMqttMessageListener[] newListeners = Arrays.copyOf(msgListener, msgListener.length + 1);
-                newListeners[newListeners.length - 1] = listener;
-                System.arraycopy(newListeners, 0, msgListener, 0, newListeners.length);
-            }
-        }
+    public void registerMsgListener(MsgEventListener listener) {
+        this.msgListener = listener;
     }
 
     public void sendEdgeMsg(String deviceId, String cap, int op, int value, RequestCallback<Integer> callback) {
@@ -198,6 +193,23 @@ public class MeoMsgHandler {
             int type = frame.getType();
             if (type == MeoEdgeMsgOpcode.EVENT) {
                 ILog.d(TAG, "event", deviceId, "idx=" + frame.getIdx(), "value=" + frame.getValue());
+                MsgEventListener listener = msgListener;
+                if (listener == null) {
+                    return;
+                }
+
+                String[] caps = getDevCaps(deviceId);
+                if (frame.getIdx() >= caps.length) {
+                    ILog.w(TAG, "event", "dropping event, unknown cap", deviceId, "idx=" + frame.getIdx());
+                    return;
+                }
+
+                // A failing listener must not break local /up handling.
+                try {
+                    listener.onEvent(deviceId, caps[frame.getIdx()], frame.getValue());
+                } catch (RuntimeException e) {
+                    ILog.w(TAG, "event", "msg listener failed", String.valueOf(e));
+                }
                 return;
             }
             if (type != MeoEdgeMsgOpcode.OK && type != MeoEdgeMsgOpcode.ERR) {
