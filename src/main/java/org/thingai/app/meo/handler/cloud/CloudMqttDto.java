@@ -29,6 +29,12 @@ public final class CloudMqttDto {
         public int value;
     }
 
+    // args of DEVICE_RENAME, also echoed back as its response data
+    public static final class RenameArgs {
+        public String deviceId;
+        public String name;
+    }
+
     // res/{requestId}; a null data or error is left out of the JSON
     public static final class Res {
         public final boolean ok;

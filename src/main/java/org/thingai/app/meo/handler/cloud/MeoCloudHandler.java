@@ -162,6 +162,31 @@ public class MeoCloudHandler {
                     });
                 }
 
+                case MeoCloudMsgOpcode.DEVICE_RENAME -> {
+                    CloudMqttDto.RenameArgs args;
+                    try {
+                        args = JsonUtil.fromJsonObject(req.args, CloudMqttDto.RenameArgs.class);
+                    } catch (JsonSyntaxException e) {
+                        respondCloudMqttReq(req.requestId, new CloudMqttDto.Res(MeoErr.BAD_REQUEST, "bad args"));
+                        return;
+                    }
+
+                    if (args == null || args.deviceId == null || args.name == null || args.name.isBlank()) {
+                        respondCloudMqttReq(req.requestId, new CloudMqttDto.Res(MeoErr.BAD_REQUEST, "deviceId and name required"));
+                        return;
+                    }
+
+                    // updateDevice overwrites name and description, so start from the stored row.
+                    MeoDevice device = mngtHandler.getDevice(args.deviceId);
+                    if (device == null) {
+                        respondCloudMqttReq(req.requestId, new CloudMqttDto.Res(MeoErr.DEVICE_NOT_FOUND, "device not found: " + args.deviceId));
+                        return;
+                    }
+                    device.setName(args.name);
+                    mngtHandler.updateDevice(args.deviceId, device);
+                    respondCloudMqttReq(req.requestId, new CloudMqttDto.Res(args));
+                }
+
                 default -> {
                     ILog.w(TAG, "req", "dropping request, unsupported op=" + req.op);
                     respondCloudMqttReq(req.requestId, new CloudMqttDto.Res(MeoErr.BAD_REQUEST, "unsupported op"));
