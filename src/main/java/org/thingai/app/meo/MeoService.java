@@ -57,6 +57,7 @@ public class MeoService extends Service {
             provisionHandler.start();
         } catch (Exception e) {
             ILog.e(TAG, "provision mqtt connect failed", e);
+            throw new RuntimeException("provision mqtt connect failed", e);
         }
 
         try {
@@ -64,6 +65,7 @@ public class MeoService extends Service {
             msgHandler.start();
         } catch (Exception e) {
             ILog.e(TAG, "device mqtt connect failed", e);
+            throw new RuntimeException("device mqtt connect failed", e);
         }
 
         // no exception here; edge can work without cloud

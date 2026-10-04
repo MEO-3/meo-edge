@@ -8,6 +8,7 @@ import org.eclipse.paho.mqttv5.common.MqttException;
 import org.eclipse.paho.mqttv5.common.MqttMessage;
 import org.eclipse.paho.mqttv5.common.MqttSubscription;
 import org.thingai.app.meo.callback.RequestCallback;
+import org.thingai.app.meo.define.MeoEdgeMsgOpcode;
 import org.thingai.app.meo.define.MeoErr;
 import org.thingai.app.meo.define.MeoTopic;
 import org.thingai.app.meo.handler.mngt.MeoMngtHandler;
@@ -66,7 +67,7 @@ public class MeoMsgHandler implements IMqttMessageListener {
 
     public void sendDown(String deviceId, String cap, int op, int value, RequestCallback<Integer> callback) {
         // validate msg frame
-        if (op != EdgeMsgDto.TYPE_READ && op != EdgeMsgDto.TYPE_WRITE) {
+        if (op != MeoEdgeMsgOpcode.READ && op != MeoEdgeMsgOpcode.WRITE) {
             callback.onFailure(MeoErr.BAD_REQUEST, "op must be read or write");
             return;
         }
@@ -113,7 +114,7 @@ public class MeoMsgHandler implements IMqttMessageListener {
             if (err != null) {
                 ILog.w(TAG, "sendDown", "no reply", deviceId, cap);
                 callback.onFailure(MeoErr.MSG_TIMEOUT, "device did not reply within " + REPLY_TIMEOUT_MS + "ms");
-            } else if (reply.getType() == EdgeMsgDto.TYPE_ERR) {
+            } else if (reply.getType() == MeoEdgeMsgOpcode.ERR) {
                 ILog.w(TAG, "sendDown", deviceId, cap, "device error=" + reply.getValue());
                 callback.onFailure(reply.getValue(), "device error " + reply.getValue());
             } else {
@@ -144,11 +145,11 @@ public class MeoMsgHandler implements IMqttMessageListener {
         }
 
         int type = frame.getType();
-        if (type == EdgeMsgDto.TYPE_EVENT) {
+        if (type == MeoEdgeMsgOpcode.EVENT) {
             ILog.d(TAG, "event", deviceId, "idx=" + frame.getIdx(), "value=" + frame.getValue());
             return;
         }
-        if (type != EdgeMsgDto.TYPE_OK && type != EdgeMsgDto.TYPE_ERR) {
+        if (type != MeoEdgeMsgOpcode.OK && type != MeoEdgeMsgOpcode.ERR) {
             ILog.w(TAG, "up", "dropping unexpected frame type", deviceId, "type=" + type);
             return;
         }

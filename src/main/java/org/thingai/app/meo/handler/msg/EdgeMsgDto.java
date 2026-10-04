@@ -1,15 +1,10 @@
 package org.thingai.app.meo.handler.msg;
 
+import org.thingai.app.meo.define.MeoEdgeMsgOpcode;
 import org.thingai.app.meo.util.ByteUtil;
 
 public final class EdgeMsgDto {
     public static final int SIZE = 4;
-
-    public static final int TYPE_READ = 0;
-    public static final int TYPE_WRITE = 1;
-    public static final int TYPE_OK = 2;
-    public static final int TYPE_ERR = 3;
-    public static final int TYPE_EVENT = 4;
 
     public static final int MAX_SEQ = 0x1F;
     public static final int MAX_IDX = 0xFF;
@@ -20,7 +15,7 @@ public final class EdgeMsgDto {
     private final int value;
 
     public EdgeMsgDto(int type, int seq, int idx, int value) {
-        if (type < TYPE_READ || type > TYPE_EVENT) {
+        if (type < MeoEdgeMsgOpcode.READ || type > MeoEdgeMsgOpcode.EVENT) {
             throw new IllegalArgumentException("unknown frame type: " + type);
         }
         if (seq < 0 || seq > MAX_SEQ) {
@@ -69,7 +64,7 @@ public final class EdgeMsgDto {
         return idx;
     }
 
-    /** Value read, written or reported; the MeoErr device code (1–99) for TYPE_ERR. */
+    /** Value read, written or reported; the MeoErr device code (1–99) for ERR. */
     public int getValue() {
         return value;
     }

@@ -8,12 +8,12 @@ import org.eclipse.paho.mqttv5.common.MqttException;
 import org.eclipse.paho.mqttv5.common.MqttMessage;
 import org.eclipse.paho.mqttv5.common.packet.MqttProperties;
 import org.thingai.app.meo.callback.RequestCallback;
+import org.thingai.app.meo.define.MeoEdgeMsgOpcode;
 import org.thingai.app.meo.define.MeoErr;
 import org.thingai.app.meo.define.MeoTopic;
 import org.thingai.app.meo.define.MeoCloudMsgOpcode;
 import org.thingai.app.meo.entity.MeoDevice;
 import org.thingai.app.meo.handler.mngt.MeoMngtHandler;
-import org.thingai.app.meo.handler.msg.EdgeMsgDto;
 import org.thingai.app.meo.handler.msg.MeoMsgHandler;
 import org.thingai.app.meo.handler.provision.MeoProvisionHandler;
 import org.thingai.app.meo.util.JsonUtil;
@@ -141,9 +141,9 @@ public class MeoCloudHandler {
 
                     int type;
                     if (req.op == MeoCloudMsgOpcode.DEVICE_READ) {
-                        type = EdgeMsgDto.TYPE_READ;
+                        type = MeoEdgeMsgOpcode.READ;
                     } else {
-                        type = EdgeMsgDto.TYPE_WRITE;
+                        type = MeoEdgeMsgOpcode.WRITE;
                     }
 
                     msgHandler.sendDown(args.deviceId, args.cap, type, args.value, new RequestCallback<Integer>() {
