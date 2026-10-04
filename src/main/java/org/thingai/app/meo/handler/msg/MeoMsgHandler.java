@@ -1,17 +1,19 @@
 package org.thingai.app.meo.handler.msg;
 
-import org.eclipse.paho.mqttv5.client.IMqttMessageListener;
-import org.eclipse.paho.mqttv5.client.MqttClient;
-import org.eclipse.paho.mqttv5.client.MqttConnectionOptions;
+import org.eclipse.paho.mqttv5.client.*;
 import org.eclipse.paho.mqttv5.client.persist.MemoryPersistence;
 import org.eclipse.paho.mqttv5.common.MqttException;
 import org.eclipse.paho.mqttv5.common.MqttMessage;
 import org.eclipse.paho.mqttv5.common.MqttSubscription;
+import org.eclipse.paho.mqttv5.common.packet.MqttProperties;
 import org.thingai.app.meo.callback.RequestCallback;
 import org.thingai.app.meo.define.MeoEdgeMsgOpcode;
 import org.thingai.app.meo.define.MeoErr;
 import org.thingai.app.meo.define.MeoTopic;
-import org.thingai.app.meo.handler.mngt.MeoMngtHandler;
+import org.thingai.app.meo.entity.MeoDevice;
+import org.thingai.app.meo.entity.MeoDeviceCap;
+import org.thingai.app.meo.util.JsonUtil;
+import org.thingai.base.dao.Dao;
 import org.thingai.base.log.ILog;
 
 import java.util.Arrays;
@@ -21,7 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class MeoMsgHandler implements IMqttMessageListener {
+public class MeoMsgHandler {
     private static final String TAG = "MeoMsgHandler";
 
     private static final long REPLY_TIMEOUT_MS = 10_000;
@@ -30,30 +32,34 @@ public class MeoMsgHandler implements IMqttMessageListener {
     private static final long MQTT_SESSION_EXPIRY_SECONDS = 300;
 
     private final MqttClient mqttClient;
-    private final MeoMngtHandler deviceHandler;
+    private final Dao dao;
+    private final IMqttMessageListener[] msgListener = new IMqttMessageListener[0];
 
-    // Keyed by deviceId+seq so a stray reply can't complete another device's request.
     private final Map<String, CompletableFuture<EdgeMsgDto>> pendingReplies = new ConcurrentHashMap<>();
-    // seqs per device, max 31
     private final Map<String, AtomicInteger> seqs = new ConcurrentHashMap<>();
 
-    // Own connection to the broker — a separate protocol from blemqtt.
-    public MeoMsgHandler(MeoMngtHandler deviceHandler, String brokerUrl) throws MqttException {
-        this.mqttClient = new MqttClient(brokerUrl, "meo-" + System.currentTimeMillis(), new MemoryPersistence());
-        this.deviceHandler = deviceHandler;
+    public MeoMsgHandler(String localMqttUrl, Dao dao) throws MqttException {
+        this.mqttClient = new MqttClient(
+                localMqttUrl,
+                "meo-" + System.currentTimeMillis(),
+                new MemoryPersistence()
+        );
+        this.dao = dao;
     }
 
     public void start() throws MqttException {
         MqttConnectionOptions options = new MqttConnectionOptions();
         options.setAutomaticReconnect(true);
-        options.setCleanStart(false); // disable this so topics don't have to re-subscribe.
+        options.setCleanStart(false);
         options.setSessionExpiryInterval(MQTT_SESSION_EXPIRY_SECONDS);
+
+        mqttClient.setCallback(new MeoMsgMqttCallback());
         mqttClient.connect(options);
         ILog.i(TAG, "start", "connected", mqttClient.getServerURI());
 
-        mqttClient.subscribe(
-                new MqttSubscription[]{new MqttSubscription(MeoTopic.UP_WILDCARD, UP_QOS)},
-                new IMqttMessageListener[]{this::messageArrived});
+        mqttClient.subscribe(new MqttSubscription[]{
+                new MqttSubscription(MeoTopic.UP_WILDCARD, UP_QOS)
+        }, msgListener);
         ILog.i(TAG, "start", "subscribed", MeoTopic.UP_WILDCARD);
     }
 
@@ -65,7 +71,17 @@ public class MeoMsgHandler implements IMqttMessageListener {
         }
     }
 
-    public void sendDown(String deviceId, String cap, int op, int value, RequestCallback<Integer> callback) {
+    public void registerMsgListener(IMqttMessageListener listener) {
+        if (listener != null) {
+            synchronized (msgListener) {
+                IMqttMessageListener[] newListeners = Arrays.copyOf(msgListener, msgListener.length + 1);
+                newListeners[newListeners.length - 1] = listener;
+                System.arraycopy(newListeners, 0, msgListener, 0, newListeners.length);
+            }
+        }
+    }
+
+    public void sendEdgeMsg(String deviceId, String cap, int op, int value, RequestCallback<Integer> callback) {
         // validate msg frame
         if (op != MeoEdgeMsgOpcode.READ && op != MeoEdgeMsgOpcode.WRITE) {
             callback.onFailure(MeoErr.BAD_REQUEST, "op must be read or write");
@@ -75,12 +91,13 @@ public class MeoMsgHandler implements IMqttMessageListener {
             callback.onFailure(MeoErr.BAD_REQUEST, "value out of int16 range: " + value);
             return;
         }
-        if (deviceHandler.getDevice(deviceId) == null) {
+        MeoDevice[] devices = deviceId == null ? null : dao.query(MeoDevice.class, "deviceId", deviceId);
+        if (devices == null || devices.length == 0) {
             callback.onFailure(MeoErr.DEVICE_NOT_FOUND, "device not found: " + deviceId);
             return;
         }
 
-        int idx = Arrays.asList(deviceHandler.getCaps(deviceId)).indexOf(cap);
+        int idx = Arrays.asList(getDevCaps(deviceId)).indexOf(cap);
         if (idx < 0) {
             callback.onFailure(MeoErr.UNKNOWN_CAP, "device has no cap: " + cap);
             return;
@@ -99,11 +116,11 @@ public class MeoMsgHandler implements IMqttMessageListener {
         try {
             MqttMessage message = new MqttMessage(new EdgeMsgDto(op, seq, idx, value).toBytes());
             message.setQos(DOWN_QOS);
-            ILog.d(TAG, "send", deviceId, "type=" + op, "seq=" + seq, "idx=" + idx, "value=" + value);
+            ILog.d(TAG, "sendEdgeMsg", deviceId, "type=" + op, "seq=" + seq, "idx=" + idx, "value=" + value);
             mqttClient.publish(MeoTopic.toTopicDown(deviceId), message);
         } catch (MqttException e) {
             pendingReplies.remove(key, future);
-            ILog.e(TAG, "sendDown publish failed", e);
+            ILog.e(TAG, "sendEdgeMsg publish failed", e);
             callback.onFailure(MeoErr.MSG_SEND_FAILED, "publish failed: " + e.getMessage());
             return;
         }
@@ -112,54 +129,89 @@ public class MeoMsgHandler implements IMqttMessageListener {
         future.orTimeout(REPLY_TIMEOUT_MS, TimeUnit.MILLISECONDS).whenComplete((reply, err) -> {
             pendingReplies.remove(key, future);
             if (err != null) {
-                ILog.w(TAG, "sendDown", "no reply", deviceId, cap);
+                ILog.w(TAG, "sendEdgeMsg", "no reply", deviceId, cap);
                 callback.onFailure(MeoErr.MSG_TIMEOUT, "device did not reply within " + REPLY_TIMEOUT_MS + "ms");
             } else if (reply.getType() == MeoEdgeMsgOpcode.ERR) {
-                ILog.w(TAG, "sendDown", deviceId, cap, "device error=" + reply.getValue());
+                ILog.w(TAG, "sendEdgeMsg", deviceId, cap, "device error=" + reply.getValue());
                 callback.onFailure(reply.getValue(), "device error " + reply.getValue());
             } else {
-                ILog.d(TAG, "sendDown", deviceId, cap, "command sent");
+                ILog.d(TAG, "sendEdgeMsg", deviceId, cap, "command sent");
                 callback.onResult(reply.getValue(), "command sent");
             }
         });
+    }
+
+    // Cap keys in wire order (index = idx); read here so this handler needs no other handler.
+    private String[] getDevCaps(String deviceId) {
+        MeoDeviceCap[] rows = dao.query(MeoDeviceCap.class, "deviceId", deviceId);
+        if (rows == null || rows.length == 0) {
+            return new String[0];
+        }
+        return JsonUtil.fromJson(rows[0].getCaps(), String[].class);
     }
 
     private String pendingKey(String deviceId, int seq) {
         return deviceId + "#" + seq;
     }
 
-    // mqtt up listener
-    @Override
-    public void messageArrived(String topic, MqttMessage message) {
-        String deviceId = MeoTopic.getDevIdFromTopic(topic);
-        if (deviceId == null) {
-            return;
+    private class MeoMsgMqttCallback implements MqttCallback {
+        @Override
+        public void disconnected(MqttDisconnectResponse disconnectResponse) {
+            ILog.d(TAG, "disconnected", disconnectResponse.getReturnCode());
         }
 
-        EdgeMsgDto frame;
-        try {
-            frame = EdgeMsgDto.parse(message.getPayload());
-        } catch (IllegalArgumentException e) {
-            ILog.w(TAG, "up", "dropping malformed frame", topic, e.getMessage());
-            return;
+        @Override
+        public void mqttErrorOccurred(MqttException exception) {
+
         }
 
-        int type = frame.getType();
-        if (type == MeoEdgeMsgOpcode.EVENT) {
-            ILog.d(TAG, "event", deviceId, "idx=" + frame.getIdx(), "value=" + frame.getValue());
-            return;
-        }
-        if (type != MeoEdgeMsgOpcode.OK && type != MeoEdgeMsgOpcode.ERR) {
-            ILog.w(TAG, "up", "dropping unexpected frame type", deviceId, "type=" + type);
-            return;
+        @Override
+        public void deliveryComplete(IMqttToken token) {
+
         }
 
-        CompletableFuture<EdgeMsgDto> pending = pendingReplies.remove(pendingKey(deviceId, frame.getSeq()));
-        if (pending == null) {
-            ILog.d(TAG, "reply", "no pending request", deviceId, "seq=" + frame.getSeq());
-            return;
+        @Override
+        public void connectComplete(boolean reconnect, String serverURI) {
+
         }
-        ILog.d(TAG, "reply", deviceId, "seq=" + frame.getSeq(), "type=" + type);
-        pending.complete(frame);
+
+        @Override
+        public void authPacketArrived(int reasonCode, MqttProperties properties) {
+
+        }
+
+        @Override
+        public void messageArrived(String topic, MqttMessage message) {
+            String deviceId = MeoTopic.getDevIdFromTopic(topic);
+            if (deviceId == null) {
+                return;
+            }
+
+            EdgeMsgDto frame;
+            try {
+                frame = EdgeMsgDto.parse(message.getPayload());
+            } catch (IllegalArgumentException e) {
+                ILog.w(TAG, "up", "dropping malformed frame", topic, e.getMessage());
+                return;
+            }
+
+            int type = frame.getType();
+            if (type == MeoEdgeMsgOpcode.EVENT) {
+                ILog.d(TAG, "event", deviceId, "idx=" + frame.getIdx(), "value=" + frame.getValue());
+                return;
+            }
+            if (type != MeoEdgeMsgOpcode.OK && type != MeoEdgeMsgOpcode.ERR) {
+                ILog.w(TAG, "up", "dropping unexpected frame type", deviceId, "type=" + type);
+                return;
+            }
+
+            CompletableFuture<EdgeMsgDto> pending = pendingReplies.remove(pendingKey(deviceId, frame.getSeq()));
+            if (pending == null) {
+                ILog.d(TAG, "reply", "no pending request", deviceId, "seq=" + frame.getSeq());
+                return;
+            }
+            ILog.d(TAG, "reply", deviceId, "seq=" + frame.getSeq(), "type=" + type);
+            pending.complete(frame);
+        }
     }
 }

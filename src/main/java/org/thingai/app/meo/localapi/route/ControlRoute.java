@@ -38,10 +38,10 @@ public class ControlRoute {
 
         String deviceId = ctx.pathParam("deviceId");
         String cap = request.getCap();
-        // sendDown is async; ctx.future keeps the request open until the callback answers.
+        // sendEdgeMsg is async; ctx.future keeps the request open until the callback answers.
         CompletableFuture<Void> done = new CompletableFuture<>();
         ctx.future(() -> done);
-        msgHandler.sendDown(deviceId, cap, toOp(request.getOp()), request.getValue(), new RequestCallback<Integer>() {
+        msgHandler.sendEdgeMsg(deviceId, cap, toOp(request.getOp()), request.getValue(), new RequestCallback<Integer>() {
             @Override
             public void onResult(Integer value, String message) {
                 ctx.json(CommandResponse.of(deviceId, cap, value));

@@ -53,7 +53,7 @@ public class MeoService extends Service {
         String brokerUrl = broker != null && !broker.trim().isEmpty() ? broker : DEFAULT_LOCAL_MQTT_BROKER;
 
         try {
-            provisionHandler = new MeoProvisionHandler(dao, brokerUrl);
+            provisionHandler = new MeoProvisionHandler(brokerUrl, dao);
             provisionHandler.start();
         } catch (Exception e) {
             ILog.e(TAG, "provision mqtt connect failed", e);
@@ -61,7 +61,7 @@ public class MeoService extends Service {
         }
 
         try {
-            msgHandler = new MeoMsgHandler(mngtHandler, brokerUrl);
+            msgHandler = new MeoMsgHandler(brokerUrl, dao);
             msgHandler.start();
         } catch (Exception e) {
             ILog.e(TAG, "device mqtt connect failed", e);

@@ -146,7 +146,7 @@ public class MeoCloudHandler {
                         type = MeoEdgeMsgOpcode.WRITE;
                     }
 
-                    msgHandler.sendDown(args.deviceId, args.cap, type, args.value, new RequestCallback<Integer>() {
+                    msgHandler.sendEdgeMsg(args.deviceId, args.cap, type, args.value, new RequestCallback<Integer>() {
                         @Override
                         public void onResult(Integer value, String message) {
                             respondCloudMqttReq(req.requestId, new CloudMqttDto.Res(new CloudMqttDto.Value(value)));

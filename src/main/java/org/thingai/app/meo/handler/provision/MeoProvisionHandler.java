@@ -67,7 +67,7 @@ public class MeoProvisionHandler {
     // Optional SSE observer; emits are fire-and-forget, called from request or MQTT threads.
     private volatile ProvisionEventListener eventListener;
 
-    public MeoProvisionHandler(Dao dao, String brokerUrl) {
+    public MeoProvisionHandler(String brokerUrl, Dao dao) {
         BlemqttConfig config = new BlemqttConfig();
         config.setBrokerUrl(brokerUrl);
         this.blemqttClient = new BlemqttClient(config);
