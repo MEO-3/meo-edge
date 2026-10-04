@@ -16,7 +16,7 @@ import java.nio.charset.StandardCharsets;
 public class CloudMqtt {
     private static final String TAG = "CloudMqtt";
 
-    private static final String DEFAULT_URL = "mqtts://meo.agp.io.vn:8883";
+    private static final String DEFAULT_URL = "mqtts://api-meo.agp.io.vn:8883";
     private static final String URL = url(System.getenv("MEO_CLOUD_MQTT_URL"));
     private static final int CONNECT_TIMEOUT_S = 10;
     private static final int QOS = 1;

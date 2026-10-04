@@ -16,7 +16,7 @@ import java.time.Duration;
 
 public final class CloudApi {
     private static final Duration TIMEOUT = Duration.ofSeconds(10);
-    private static final String DEFAULT_API_URL = "https://meo.agp.io.vn";
+    private static final String DEFAULT_API_URL = "https://api-meo.agp.io.vn";
     private static final String API_URL = apiUrl(System.getenv("MEO_CLOUD_API_URL"));
     private static final HttpClient http = HttpClient.newBuilder().connectTimeout(TIMEOUT).build();
 
