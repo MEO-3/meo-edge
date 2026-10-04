@@ -8,6 +8,7 @@ public class MeoDeviceProvision {
     private String model;
     private String fwVersion;
     private String[] caps;
+    private int[] capTypes;
     private String wifiSsid;
     private String provisionStatus;
     private int status = MeoDevProvisionStatus.STATUS_CREATED;
@@ -51,6 +52,14 @@ public class MeoDeviceProvision {
 
     public void setCaps(String[] caps) {
         this.caps = caps;
+    }
+
+    public int[] getCapTypes() {
+        return capTypes;
+    }
+
+    public void setCapTypes(int[] capTypes) {
+        this.capTypes = capTypes;
     }
 
     public String getWifiSsid() {

@@ -9,6 +9,8 @@ public class MeoDeviceCap {
     private String deviceId;
     @DaoColumn(nullable = false)
     private String caps; // json array of cap keys, in report order
+    @DaoColumn(nullable = false)
+    private String types; // json array of MeoDevCapabilityType, parallel to caps
 
     public String getDeviceId() {
         return deviceId;
@@ -24,5 +26,13 @@ public class MeoDeviceCap {
 
     public void setCaps(String caps) {
         this.caps = caps;
+    }
+
+    public String getTypes() {
+        return types;
+    }
+
+    public void setTypes(String types) {
+        this.types = types;
     }
 }

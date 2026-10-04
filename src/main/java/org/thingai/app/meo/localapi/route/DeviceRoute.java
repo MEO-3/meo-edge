@@ -59,16 +59,18 @@ public class DeviceRoute {
         // Capture caps before the handler removes their rows.
         String deviceId = ctx.pathParam("deviceId");
         String[] caps = deviceHandler.getCaps(deviceId);
+        int[] capTypes = deviceHandler.getCapTypes(deviceId);
         MeoDevice device = deviceHandler.deleteDevice(deviceId);
         if (device == null) {
             notFound(ctx);
             return;
         }
-        ctx.json(DeviceResponse.of(device, caps));
+        ctx.json(DeviceResponse.of(device, caps, capTypes));
     }
 
     private DeviceResponse toResponse(MeoDevice device) {
-        return DeviceResponse.of(device, deviceHandler.getCaps(device.getDeviceId()));
+        return DeviceResponse.of(device, deviceHandler.getCaps(device.getDeviceId()),
+                deviceHandler.getCapTypes(device.getDeviceId()));
     }
 
     private void notFound(Context ctx) {

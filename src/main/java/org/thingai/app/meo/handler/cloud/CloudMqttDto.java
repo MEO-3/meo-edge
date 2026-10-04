@@ -74,6 +74,7 @@ public final class CloudMqttDto {
         public String model;
         public String fwVersion;
         public String[] caps;
+        public int[] capTypes;
     }
 
     // data of DEVICE_READ / DEVICE_WRITE

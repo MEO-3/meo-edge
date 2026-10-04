@@ -123,6 +123,7 @@ public class MeoCloudHandler {
                         device.model = rows[i].getModel();
                         device.fwVersion = rows[i].getFwVersion();
                         device.caps = mngtHandler.getCaps(rows[i].getDeviceId());
+                        device.capTypes = mngtHandler.getCapTypes(rows[i].getDeviceId());
                         devices[i] = device;
                     }
                     respondCloudMqttReq(req.requestId, new CloudMqttDto.Res(devices));

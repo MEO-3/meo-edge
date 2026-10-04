@@ -63,4 +63,13 @@ public class MeoMngtHandler {
         }
         return JsonUtil.fromJson(rows[0].getCaps(), String[].class);
     }
+
+    // Cap types parallel to getCaps (index = idx).
+    public int[] getCapTypes(String deviceId) {
+        MeoDeviceCap[] rows = dao.query(MeoDeviceCap.class, "deviceId", deviceId);
+        if (rows == null || rows.length == 0) {
+            return new int[0];
+        }
+        return JsonUtil.fromJson(rows[0].getTypes(), int[].class);
+    }
 }

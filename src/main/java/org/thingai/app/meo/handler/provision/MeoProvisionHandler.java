@@ -222,9 +222,9 @@ public class MeoProvisionHandler {
         MeoDeviceProvision current = session;
         try {
             MeoDevice device = saveDevice(current);
-            persistCaps(device.getDeviceId(), current.getCaps());
+            persistCaps(device.getDeviceId(), current.getCaps(), current.getCapTypes());
             session = null;
-            DeviceResponse response = DeviceResponse.of(device, current.getCaps());
+            DeviceResponse response = DeviceResponse.of(device, current.getCaps(), current.getCapTypes());
             emit(EVENT_DEVICE_PERSISTED, response);
             callback.onResult(response, "device persisted");
         } catch (RuntimeException e) {
@@ -259,10 +259,11 @@ public class MeoProvisionHandler {
     }
 
     // Upserts the device's cap row so re-provisioning replaces the list, not accumulates.
-    private void persistCaps(String deviceId, String[] caps) {
+    private void persistCaps(String deviceId, String[] caps, int[] capTypes) {
         MeoDeviceCap row = new MeoDeviceCap();
         row.setDeviceId(deviceId);
         row.setCaps(JsonUtil.toJson(caps != null ? caps : new String[0]));
+        row.setTypes(JsonUtil.toJson(capTypes != null ? capTypes : new int[0]));
         dao.insertOrUpdate(row);
         ILog.i(TAG, "persistCaps", "deviceId=" + deviceId, "count=" + (caps != null ? caps.length : 0));
     }
@@ -321,10 +322,12 @@ public class MeoProvisionHandler {
             }
 
             provision.setCaps(parseCaps(report.get("caps")));
+            provision.setCapTypes(parseCapTypes(report.get("types"), provision.getCaps().length));
             ILog.i(TAG, "readCaps", "model=" + provision.getModel(),
                     "fw=" + provision.getFwVersion(), "count=" + provision.getCaps().length);
         } catch (RuntimeException e) {
             provision.setCaps(new String[0]);
+            provision.setCapTypes(new int[0]);
             ILog.w(TAG, "readCaps", "failed; continuing with empty caps", e.getMessage());
         }
     }
@@ -349,6 +352,24 @@ public class MeoProvisionHandler {
             caps[i] = cap;
         }
         return caps;
+    }
+
+    // Types run parallel to caps. Firmware from before types sends none, so a missing or
+    // mismatched array falls back to all GENERIC instead of failing the provision.
+    static int[] parseCapTypes(JsonElement element, int capCount) {
+        int[] types = new int[capCount]; // MeoDevCapabilityType.GENERIC
+        if (element == null || !element.isJsonArray() || element.getAsJsonArray().size() != capCount) {
+            return types;
+        }
+        JsonArray array = element.getAsJsonArray();
+        try {
+            for (int i = 0; i < capCount; i++) {
+                types[i] = array.get(i).getAsInt();
+            }
+        } catch (RuntimeException e) {
+            return new int[capCount];
+        }
+        return types;
     }
 
     private void subscribeStatus(MeoDeviceProvision provision) {
