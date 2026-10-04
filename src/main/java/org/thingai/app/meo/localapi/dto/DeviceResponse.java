@@ -1,4 +1,4 @@
-package org.thingai.app.meo.api.dto;
+package org.thingai.app.meo.localapi.dto;
 
 import org.thingai.app.meo.entity.MeoDevice;
 

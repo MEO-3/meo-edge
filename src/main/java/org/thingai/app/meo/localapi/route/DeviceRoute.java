@@ -1,9 +1,9 @@
-package org.thingai.app.meo.api.route;
+package org.thingai.app.meo.localapi.route;
 
 import io.javalin.config.JavalinConfig;
 import io.javalin.http.Context;
-import org.thingai.app.meo.api.dto.DeviceResponse;
-import org.thingai.app.meo.api.dto.ErrorResponse;
+import org.thingai.app.meo.localapi.dto.DeviceResponse;
+import org.thingai.app.meo.localapi.dto.ErrorResponse;
 import org.thingai.app.meo.define.MeoErr;
 import org.thingai.app.meo.entity.MeoDevice;
 import org.thingai.app.meo.handler.mngt.MeoMngtHandler;

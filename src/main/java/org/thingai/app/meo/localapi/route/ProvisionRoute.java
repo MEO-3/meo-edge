@@ -1,12 +1,12 @@
-package org.thingai.app.meo.api.route;
+package org.thingai.app.meo.localapi.route;
 
 import io.javalin.config.JavalinConfig;
 import io.javalin.http.Context;
 import io.javalin.http.sse.SseClient;
 import com.google.gson.JsonObject;
-import org.thingai.app.meo.api.dto.DeviceResponse;
-import org.thingai.app.meo.api.dto.ErrorResponse;
-import org.thingai.app.meo.api.dto.ProvisionRequest;
+import org.thingai.app.meo.localapi.dto.DeviceResponse;
+import org.thingai.app.meo.localapi.dto.ErrorResponse;
+import org.thingai.app.meo.localapi.dto.ProvisionRequest;
 import org.thingai.app.meo.callback.ProvisionEventListener;
 import org.thingai.app.meo.callback.RequestCallback;
 import org.thingai.app.meo.define.MeoErr;

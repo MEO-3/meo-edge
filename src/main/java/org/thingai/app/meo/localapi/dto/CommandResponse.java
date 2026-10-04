@@ -1,4 +1,4 @@
-package org.thingai.app.meo.api.dto;
+package org.thingai.app.meo.localapi.dto;
 
 // Result of a device command: the value the device reported back. Echoes
 // deviceId and cap so a caller firing several commands can tell them apart.

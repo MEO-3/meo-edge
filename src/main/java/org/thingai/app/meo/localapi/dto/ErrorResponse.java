@@ -1,4 +1,4 @@
-package org.thingai.app.meo.api.dto;
+package org.thingai.app.meo.localapi.dto;
 
 public class ErrorResponse {
     private int errorCode;

@@ -10,7 +10,7 @@ Terms: **gateway** = the hardware box; **edge** = the gateway plus the services 
 - `api/` — Javalin route registration. Keep routes thin and delegate to handlers.
 - `handler/` — business logic, one subpackage per concern: `mngt/` (`MeoMngtHandler`, device registry), `provision/` (`MeoProvisionHandler`, `ProvisionBleUuid`), `msg/` (`MeoMsgHandler`), `cloud/` (`MeoCloudHandler`). Callback interfaces live in `callback/`.
 - `blemqtt/` — MQTT client (`BlemqttClient`) that drives the Rust BLE service over the generic `blemqtt` protocol.
-- `define/` — enums and shared constants (`MeoErr`, `MeoMsgEdgeFrame`, `MeoMsgCloudFrame`, `MeoTopic`, `MeoDevProvisionStatus`, `MeoDevTransportType`).
+- `define/` — enums and shared constants (`MeoErr`, `MeoEdgeMsgFrame`, `MeoCloudMsgFrame`, `MeoCloudMsgOpcode`, `MeoTopic`, `MeoDevProvisionStatus`, `MeoDevTransportType`).
 - `api/dto/` — HTTP request/response shapes (`DeviceResponse`, `CommandRequest`, ...).
 - `entity/` — DTO/entity classes (`MeoDevice`, `MeoDeviceProvision`, ...).
 - `util/` — helpers (`ByteUtil`, `JsonUtil`, `NetUtil`).
@@ -40,7 +40,7 @@ Naming:
 
 - `Meo` prefix — contracts shared across layers (device, edge, cloud): `MeoErr`, `MeoTopic`, `MeoMsg*Frame`, handlers, entities.
 - `MeoDev*` — constants describing a device (`MeoDevProvisionStatus`, `MeoDevTransportType`).
-- `MeoMsgEdgeFrame` / `MeoMsgCloudFrame` — wire frames per hop: device ↔ edge, edge ↔ cloud.
+- `MeoEdgeMsgFrame` / `MeoCloudMsgFrame` — wire frames per hop: device ↔ edge, edge ↔ cloud.
 - No prefix — edge-internal only: `api/dto/` classes, `ProvisionBleUuid`.
 - `MeoErr` codes are ranged by where the error occurred: 0 generic, 1–99 device, 100–199 edge, 200–299 cloud.
 

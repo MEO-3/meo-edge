@@ -1,4 +1,4 @@
-package org.thingai.app.meo.api.dto;
+package org.thingai.app.meo.localapi.dto;
 
 // Request body for the stepped provisioning endpoints: connect uses bleAddress,
 // setup uses ssid/password.

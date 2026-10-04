@@ -1,14 +1,14 @@
-package org.thingai.app.meo.api.route;
+package org.thingai.app.meo.localapi.route;
 
 import io.javalin.config.JavalinConfig;
 import io.javalin.http.Context;
-import org.thingai.app.meo.api.dto.CommandRequest;
-import org.thingai.app.meo.api.dto.CommandResponse;
-import org.thingai.app.meo.api.dto.ErrorResponse;
+import org.thingai.app.meo.localapi.dto.CommandRequest;
+import org.thingai.app.meo.localapi.dto.CommandResponse;
+import org.thingai.app.meo.localapi.dto.ErrorResponse;
 import org.thingai.app.meo.callback.RequestCallback;
 import org.thingai.app.meo.define.MeoErr;
 import org.thingai.app.meo.handler.msg.MeoMsgHandler;
-import org.thingai.app.meo.define.MeoMsgEdgeFrame;
+import org.thingai.app.meo.define.MeoEdgeMsgFrame;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -59,10 +59,10 @@ public class ControlRoute {
     // Unknown op maps to -1, which the handler rejects.
     private int toOp(String op) {
         if ("read".equals(op)) {
-            return MeoMsgEdgeFrame.TYPE_READ;
+            return MeoEdgeMsgFrame.TYPE_READ;
         }
         if ("write".equals(op)) {
-            return MeoMsgEdgeFrame.TYPE_WRITE;
+            return MeoEdgeMsgFrame.TYPE_WRITE;
         }
         return -1;
     }

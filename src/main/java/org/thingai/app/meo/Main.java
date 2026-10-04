@@ -2,7 +2,7 @@ package org.thingai.app.meo;
 
 import io.javalin.Javalin;
 import io.javalin.json.JavalinGson;
-import org.thingai.app.meo.api.Route;
+import org.thingai.app.meo.localapi.Route;
 
 public class Main {
     private static final String TAG = "Main";

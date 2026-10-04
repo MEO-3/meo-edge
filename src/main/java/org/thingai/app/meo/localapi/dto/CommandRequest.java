@@ -1,4 +1,4 @@
-package org.thingai.app.meo.api.dto;
+package org.thingai.app.meo.localapi.dto;
 
 // Request body for device control: read or write one device-defined cap.
 // value is an int16 and only used by writes.

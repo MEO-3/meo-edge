@@ -6,7 +6,7 @@ import org.thingai.app.meo.util.ByteUtil;
  * The one device frame, on both down and up topics: u8 type(3b)|seq(5b) | u8 idx | i16 value LE.
  * seq correlates OK/ERR with the READ/WRITE that caused it; ERR carries the error code in value.
  */
-public final class MeoMsgEdgeFrame {
+public final class MeoEdgeMsgFrame {
     public static final int SIZE = 4;
 
     public static final int TYPE_READ = 0;
@@ -23,7 +23,7 @@ public final class MeoMsgEdgeFrame {
     private final int idx;
     private final int value;
 
-    public MeoMsgEdgeFrame(int type, int seq, int idx, int value) {
+    public MeoEdgeMsgFrame(int type, int seq, int idx, int value) {
         if (type < TYPE_READ || type > TYPE_EVENT) {
             throw new IllegalArgumentException("unknown frame type: " + type);
         }
@@ -42,14 +42,14 @@ public final class MeoMsgEdgeFrame {
         this.value = value;
     }
 
-    public static MeoMsgEdgeFrame parse(byte[] payload) {
+    public static MeoEdgeMsgFrame parse(byte[] payload) {
         if (payload == null || payload.length != SIZE) {
             throw new IllegalArgumentException(
                     "frame must be " + SIZE + " bytes, got "
                             + (payload == null ? "null" : String.valueOf(payload.length)));
         }
         int head = payload[0] & 0xFF;
-        return new MeoMsgEdgeFrame(head >> 5, head & MAX_SEQ, payload[1] & 0xFF, ByteUtil.getI16LE(payload, 2));
+        return new MeoEdgeMsgFrame(head >> 5, head & MAX_SEQ, payload[1] & 0xFF, ByteUtil.getI16LE(payload, 2));
     }
 
     public byte[] toBytes() {

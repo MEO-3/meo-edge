@@ -1,9 +1,9 @@
-package org.thingai.app.meo.api;
+package org.thingai.app.meo.localapi;
 
 import io.javalin.config.JavalinConfig;
-import org.thingai.app.meo.api.route.ControlRoute;
-import org.thingai.app.meo.api.route.DeviceRoute;
-import org.thingai.app.meo.api.route.ProvisionRoute;
+import org.thingai.app.meo.localapi.route.ControlRoute;
+import org.thingai.app.meo.localapi.route.DeviceRoute;
+import org.thingai.app.meo.localapi.route.ProvisionRoute;
 import org.thingai.app.meo.handler.msg.MeoMsgHandler;
 import org.thingai.app.meo.handler.mngt.MeoMngtHandler;
 import org.thingai.app.meo.handler.provision.MeoProvisionHandler;
