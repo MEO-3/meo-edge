@@ -7,11 +7,13 @@ import org.eclipse.paho.mqttv5.client.MqttDisconnectResponse;
 import org.eclipse.paho.mqttv5.common.MqttException;
 import org.eclipse.paho.mqttv5.common.MqttMessage;
 import org.eclipse.paho.mqttv5.common.packet.MqttProperties;
+import org.thingai.app.meo.callback.RequestCallback;
 import org.thingai.app.meo.define.MeoErr;
 import org.thingai.app.meo.define.MeoTopic;
 import org.thingai.app.meo.define.MeoCloudMsgOpcode;
 import org.thingai.app.meo.entity.MeoDevice;
 import org.thingai.app.meo.handler.mngt.MeoMngtHandler;
+import org.thingai.app.meo.handler.msg.EdgeMsgDto;
 import org.thingai.app.meo.handler.msg.MeoMsgHandler;
 import org.thingai.app.meo.handler.provision.MeoProvisionHandler;
 import org.thingai.app.meo.util.JsonUtil;
@@ -25,7 +27,6 @@ public class MeoCloudHandler {
 
     private final CloudMqtt cloudMqtt = new CloudMqtt();
     private final CloudRegister cloudRegister;
-    private String edgeId;
 
     private final MeoMsgHandler msgHandler;
     private final MeoMngtHandler mngtHandler;
@@ -73,8 +74,6 @@ public class MeoCloudHandler {
     }
 
     private class CloudMqttCallback implements MqttCallback {
-        String edgeId = cloudRegister.edgeId();
-
         @Override
         public void disconnected(MqttDisconnectResponse disconnectResponse) {
 
@@ -87,7 +86,8 @@ public class MeoCloudHandler {
 
         @Override
         public void messageArrived(String topic, MqttMessage message) {
-            if (!topic.equals(MeoTopic.toTopicCloudReq(edgeId))) {
+            if (!isValidCloudReqTopic(topic)) {
+                ILog.w(TAG, "req", "dropping request, invalid topic=" + topic);
                 return;
             }
 
@@ -100,6 +100,7 @@ public class MeoCloudHandler {
                 ILog.w(TAG, "req", "dropping malformed request", e.getMessage());
                 return;
             }
+
             if (req == null || !req.isValid()) {
                 ILog.w(TAG, "req", "dropping request, bad requestId");
                 return;
@@ -121,20 +122,46 @@ public class MeoCloudHandler {
                         device.caps = mngtHandler.getCaps(rows[i].getDeviceId());
                         devices[i] = device;
                     }
-                    respondCloudMqttReq(edgeId, req.requestId, new CloudMqttDto.Res(devices));
+                    respondCloudMqttReq(req.requestId, new CloudMqttDto.Res(devices));
                 }
 
-                case MeoCloudMsgOpcode.DEVICE_READ -> {
-                    // TODO: Implement DEVICE_READ handling
-                }
+                case MeoCloudMsgOpcode.DEVICE_READ, MeoCloudMsgOpcode.DEVICE_WRITE -> {
+                    CloudMqttDto.DeviceArgs args;
+                    try {
+                        args = JsonUtil.fromJsonObject(req.args, CloudMqttDto.DeviceArgs.class);
+                    } catch (JsonSyntaxException e) {
+                        respondCloudMqttReq(req.requestId, new CloudMqttDto.Res(MeoErr.BAD_REQUEST, "bad args"));
+                        return;
+                    }
 
-                case MeoCloudMsgOpcode.DEVICE_WRITE -> {
-                    // TODO: Implement DEVICE_WRITE handling
+                    if (args == null || args.deviceId == null || args.cap == null) {
+                        respondCloudMqttReq(req.requestId, new CloudMqttDto.Res(MeoErr.BAD_REQUEST, "deviceId and cap required"));
+                        return;
+                    }
+
+                    int type;
+                    if (req.op == MeoCloudMsgOpcode.DEVICE_READ) {
+                        type = EdgeMsgDto.TYPE_READ;
+                    } else {
+                        type = EdgeMsgDto.TYPE_WRITE;
+                    }
+
+                    msgHandler.sendDown(args.deviceId, args.cap, type, args.value, new RequestCallback<Integer>() {
+                        @Override
+                        public void onResult(Integer value, String message) {
+                            respondCloudMqttReq(req.requestId, new CloudMqttDto.Res(new CloudMqttDto.Value(value)));
+                        }
+
+                        @Override
+                        public void onFailure(int errorCode, String message) {
+                            respondCloudMqttReq(req.requestId, new CloudMqttDto.Res(errorCode, message));
+                        }
+                    });
                 }
 
                 default -> {
                     ILog.w(TAG, "req", "dropping request, unsupported op=" + req.op);
-                    respondCloudMqttReq(edgeId, req.requestId, new CloudMqttDto.Res(MeoErr.OP_NOT_SUPPORTED, "unsupported op"));
+                    respondCloudMqttReq(req.requestId, new CloudMqttDto.Res(MeoErr.BAD_REQUEST, "unsupported op"));
                 }
             }
 
@@ -153,11 +180,15 @@ public class MeoCloudHandler {
         }
     }
 
-    private void respondCloudMqttReq(String edgeId, String requestId, CloudMqttDto.Res res) {
+    private void respondCloudMqttReq(String requestId, CloudMqttDto.Res res) {
         try {
-            cloudMqtt.publish(MeoTopic.toTopicCloudRes(edgeId, requestId), JsonUtil.toJson(res));
+            cloudMqtt.publish(MeoTopic.toTopicCloudRes(cloudRegister.edgeId(), requestId), JsonUtil.toJson(res));
         } catch (MqttException e) {
             ILog.w(TAG, "res", "dropping response", requestId, String.valueOf(e));
         }
+    }
+
+    private boolean isValidCloudReqTopic(String topic) throws IllegalArgumentException {
+        return topic.equals(MeoTopic.toTopicCloudReq(cloudRegister.edgeId()));
     }
 }
