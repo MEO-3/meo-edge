@@ -22,13 +22,18 @@ import org.thingai.base.dao.Dao;
 import org.thingai.base.log.ILog;
 
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class MeoCloudHandler {
     private static final String TAG = "MeoCloudHandler";
     private static final int EVENT_QOS = 0;
+    private static final int DEFAULT_SCAN_TIMEOUT_MS = 8000;
 
     private final CloudMqtt cloudMqtt = new CloudMqtt();
     private final CloudRegister cloudRegister;
+    // Provision steps block for seconds; off the MQTT callback thread so device read/write keeps flowing.
+    private final ExecutorService provisionExecutor = Executors.newSingleThreadExecutor();
 
     private final MeoMsgHandler msgHandler;
     private final MeoMngtHandler mngtHandler;
@@ -65,6 +70,7 @@ public class MeoCloudHandler {
 
     public void stop() {
         cloudRegister.stop();
+        provisionExecutor.shutdownNow();
         cloudMqtt.disconnect();
     }
 
@@ -188,6 +194,43 @@ public class MeoCloudHandler {
                     respondCloudMqttReq(req.requestId, new CloudMqttDto.Res(args));
                 }
 
+                case MeoCloudMsgOpcode.DEVICE_DELETE -> {
+                    CloudMqttDto.DeviceIdArgs args;
+                    try {
+                        args = JsonUtil.fromJsonObject(req.args, CloudMqttDto.DeviceIdArgs.class);
+                    } catch (JsonSyntaxException e) {
+                        respondCloudMqttReq(req.requestId, new CloudMqttDto.Res(MeoErr.BAD_REQUEST, "bad args"));
+                        return;
+                    }
+
+                    if (args == null || args.deviceId == null) {
+                        respondCloudMqttReq(req.requestId, new CloudMqttDto.Res(MeoErr.BAD_REQUEST, "deviceId required"));
+                        return;
+                    }
+
+                    if (mngtHandler.deleteDevice(args.deviceId) == null) {
+                        respondCloudMqttReq(req.requestId, new CloudMqttDto.Res(MeoErr.DEVICE_NOT_FOUND, "device not found: " + args.deviceId));
+                        return;
+                    }
+                    respondCloudMqttReq(req.requestId, new CloudMqttDto.Res(args));
+                }
+
+                case MeoCloudMsgOpcode.DEVICE_PROVISION -> {
+                    CloudMqttDto.ProvisionArgs args;
+                    try {
+                        args = JsonUtil.fromJsonObject(req.args, CloudMqttDto.ProvisionArgs.class);
+                    } catch (JsonSyntaxException e) {
+                        respondCloudMqttReq(req.requestId, new CloudMqttDto.Res(MeoErr.BAD_REQUEST, "bad args"));
+                        return;
+                    }
+
+                    if (args == null || args.step == null) {
+                        respondCloudMqttReq(req.requestId, new CloudMqttDto.Res(MeoErr.BAD_REQUEST, "step required"));
+                        return;
+                    }
+                    provisionExecutor.execute(() -> provision(req.requestId, args));
+                }
+
                 default -> {
                     ILog.w(TAG, "req", "dropping request, unsupported op=" + req.op);
                     respondCloudMqttReq(req.requestId, new CloudMqttDto.Res(MeoErr.BAD_REQUEST, "unsupported op"));
@@ -219,6 +262,44 @@ public class MeoCloudHandler {
                 ILog.w(TAG, "event", "dropping event", deviceId, String.valueOf(e));
             }
         }
+    }
+
+    // Runs one provisioning step; mirrors the local /api/v1/provision endpoints.
+    private void provision(String requestId, CloudMqttDto.ProvisionArgs args) {
+        switch (args.step) {
+            case "scan" -> provisionHandler.scan(args.timeoutMs > 0 ? args.timeoutMs : DEFAULT_SCAN_TIMEOUT_MS,
+                    args.namePrefix, respondWith(requestId));
+            case "connect" -> {
+                if (args.bleAddress == null || args.bleAddress.isBlank()) {
+                    respondCloudMqttReq(requestId, new CloudMqttDto.Res(MeoErr.BAD_REQUEST, "bleAddress required"));
+                    return;
+                }
+                provisionHandler.connect(args.bleAddress, respondWith(requestId));
+            }
+            case "setup" -> {
+                if (args.ssid == null || args.ssid.isBlank()) {
+                    respondCloudMqttReq(requestId, new CloudMqttDto.Res(MeoErr.BAD_REQUEST, "ssid required"));
+                    return;
+                }
+                provisionHandler.setupDevice(args.ssid, args.password, respondWith(requestId));
+            }
+            case "persist" -> provisionHandler.persistDevice(respondWith(requestId));
+            default -> respondCloudMqttReq(requestId, new CloudMqttDto.Res(MeoErr.BAD_REQUEST, "unknown step: " + args.step));
+        }
+    }
+
+    private <T> RequestCallback<T> respondWith(String requestId) {
+        return new RequestCallback<>() {
+            @Override
+            public void onResult(T value, String message) {
+                respondCloudMqttReq(requestId, new CloudMqttDto.Res(value));
+            }
+
+            @Override
+            public void onFailure(int errorCode, String message) {
+                respondCloudMqttReq(requestId, new CloudMqttDto.Res(errorCode, message));
+            }
+        };
     }
 
     private void respondCloudMqttReq(String requestId, CloudMqttDto.Res res) {

@@ -35,6 +35,22 @@ public final class CloudMqttDto {
         public String name;
     }
 
+    // args of DEVICE_DELETE, also echoed back as its response data
+    public static final class DeviceIdArgs {
+        public String deviceId;
+    }
+
+    // args of DEVICE_PROVISION; step is scan | connect | setup | persist and picks which
+    // of the other fields apply (scan: timeoutMs, namePrefix; connect: bleAddress; setup: ssid, password)
+    public static final class ProvisionArgs {
+        public String step;
+        public int timeoutMs;
+        public String namePrefix;
+        public String bleAddress;
+        public String ssid;
+        public String password;
+    }
+
     // res/{requestId}; a null data or error is left out of the JSON
     public static final class Res {
         public final boolean ok;
