@@ -16,6 +16,7 @@ import org.thingai.app.meo.entity.MeoDeviceCap;
 import org.thingai.app.meo.util.JsonUtil;
 import org.thingai.base.dao.Dao;
 import org.thingai.base.log.ILog;
+import org.thingai.base.utils.ArrayUtils;
 
 import java.util.Arrays;
 import java.util.Map;
@@ -34,7 +35,7 @@ public class MeoMsgHandler {
 
     private final MqttClient mqttClient;
     private final Dao dao;
-    private volatile MsgEventListener msgListener;
+    private MsgEventListener[] msgListener = new MsgEventListener[0];
 
     private final Map<String, CompletableFuture<EdgeMsgDto>> pendingReplies = new ConcurrentHashMap<>();
     private final Map<String, AtomicInteger> seqs = new ConcurrentHashMap<>();
@@ -72,8 +73,22 @@ public class MeoMsgHandler {
         }
     }
 
-    public void registerMsgListener(MsgEventListener listener) {
-        this.msgListener = listener;
+    public synchronized void addEventListener(MsgEventListener listener) {
+        if (listener == null) {
+            return;
+        }
+        this.msgListener = ArrayUtils.append(this.msgListener, listener);
+    }
+
+    public synchronized void removeEventListener(MsgEventListener listener) {
+        if  (listener == null) {
+            return;
+        }
+        int idx = ArrayUtils.indexOf(this.msgListener, listener);
+        if (idx < 0) {
+            return;
+        }
+        this.msgListener = ArrayUtils.removeAt(this.msgListener, idx);
     }
 
     public void sendEdgeMsg(String deviceId, String cap, int op, int value, RequestCallback<Integer> callback) {
@@ -193,10 +208,7 @@ public class MeoMsgHandler {
             int type = frame.getType();
             if (type == MeoEdgeMsgOpcode.EVENT) {
                 ILog.d(TAG, "event", deviceId, "idx=" + frame.getIdx(), "value=" + frame.getValue());
-                MsgEventListener listener = msgListener;
-                if (listener == null) {
-                    return;
-                }
+
 
                 String[] caps = getDevCaps(deviceId);
                 if (frame.getIdx() >= caps.length) {
@@ -204,11 +216,15 @@ public class MeoMsgHandler {
                     return;
                 }
 
-                // A failing listener must not break local /up handling.
-                try {
-                    listener.onEvent(deviceId, caps[frame.getIdx()], frame.getValue());
-                } catch (RuntimeException e) {
-                    ILog.w(TAG, "event", "msg listener failed", String.valueOf(e));
+                for (MsgEventListener listener : msgListener) {
+                    if (listener == null) {
+                        continue;
+                    }
+                    try {
+                        listener.onEvent(deviceId, caps[frame.getIdx()], frame.getValue());
+                    } catch (RuntimeException e) {
+                        ILog.w(TAG, "event", "msg listener failed", String.valueOf(e));
+                    }
                 }
                 return;
             }

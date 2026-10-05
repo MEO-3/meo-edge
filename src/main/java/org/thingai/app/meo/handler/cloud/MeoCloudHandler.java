@@ -53,7 +53,7 @@ public class MeoCloudHandler {
             public void onRegisterSuccess(String edgeId, String secret) {
                 ILog.w(TAG, "onRegisterSuccess", "edgeId=" + edgeId);
                 connectMqtt(edgeId, secret, new CloudMqttCallback());
-                msgHandler.registerMsgListener(new CloudEventForwarder());
+                msgHandler.addEventListener(new CloudEventForwarder());
             }
 
             @Override
