@@ -2,7 +2,7 @@ package org.thingai.app.meo.handler.provision;
 
 import org.thingai.app.meo.util.NetUtil;
 
-public final class ProvisionConfig {
+final class ProvisionConfig {
     private ProvisionConfig() {
     }
 

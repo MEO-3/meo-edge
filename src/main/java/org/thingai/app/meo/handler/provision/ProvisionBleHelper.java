@@ -58,6 +58,23 @@ final class ProvisionBleHelper {
         return params;
     }
 
+    // Transport cleanup only — does not touch provisioning status, which persistDevice needs.
+    static void safeDisconnect(BlemqttClient client, MeoDeviceProvision provision) {
+        try {
+            sendBlocking(client, BlemqttCommand.create(BlemqttOp.DEVICE_DISCONNECT, addressParams(provision)));
+            ILog.i(TAG, "disconnect", "disconnected", addressLog(provision));
+        } catch (RuntimeException e) {
+            ILog.w(TAG, "disconnect failed", e);
+        }
+    }
+
+    static String addressLog(MeoDeviceProvision provision) {
+        if (provision == null) {
+            return "bleAddress=null";
+        }
+        return "bleAddress=" + provision.getBleAddress();
+    }
+
     private static RuntimeException toException(BlemqttReply reply) {
         BlemqttError error = reply.getError();
         if (error == null) {

@@ -30,7 +30,7 @@ public class ProvisionRoute implements ProvisionEventListener {
 
     public ProvisionRoute(MeoProvisionHandler provisionHandler) {
         this.provisionHandler = provisionHandler;
-        provisionHandler.setEventListener(this);
+        provisionHandler.addEventListener(this);
     }
 
     public void addRoutes(JavalinConfig config) {
@@ -47,7 +47,7 @@ public class ProvisionRoute implements ProvisionEventListener {
         sseClients.add(client);
 
         // Send in-flight session state up front for late/reconnecting clients.
-        MeoDeviceProvision session = provisionHandler.currentSession();
+        MeoDeviceProvision session = provisionHandler.getCurrentDevProvision();
         if (session != null) {
             send(client, ProvisionEvent.PROVISION_STATUS, JsonUtil.toJson(session));
         }
