@@ -12,6 +12,7 @@ import org.thingai.app.meo.callback.RequestCallback;
 import org.thingai.app.meo.define.MeoErr;
 import org.thingai.app.meo.entity.MeoDeviceProvision;
 import org.thingai.app.meo.handler.provision.MeoProvisionHandler;
+import org.thingai.app.meo.handler.provision.ProvisionEvent;
 import org.thingai.app.meo.util.JsonUtil;
 
 import java.util.List;
@@ -48,7 +49,7 @@ public class ProvisionRoute implements ProvisionEventListener {
         // Send in-flight session state up front for late/reconnecting clients.
         MeoDeviceProvision session = provisionHandler.currentSession();
         if (session != null) {
-            send(client, MeoProvisionHandler.EVENT_PROVISION_STATUS, JsonUtil.toJson(session));
+            send(client, ProvisionEvent.PROVISION_STATUS, JsonUtil.toJson(session));
         }
     }
 

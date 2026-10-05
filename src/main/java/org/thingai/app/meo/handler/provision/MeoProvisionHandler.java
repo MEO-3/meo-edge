@@ -7,7 +7,6 @@ import com.google.gson.JsonParser;
 import org.thingai.app.meo.blemqtt.BlemqttClient;
 import org.thingai.app.meo.blemqtt.BlemqttCommand;
 import org.thingai.app.meo.blemqtt.BlemqttConfig;
-import org.thingai.app.meo.blemqtt.BlemqttError;
 import org.thingai.app.meo.blemqtt.BlemqttEvent;
 import org.thingai.app.meo.blemqtt.BlemqttOp;
 import org.thingai.app.meo.blemqtt.BlemqttReply;
@@ -22,39 +21,26 @@ import org.thingai.app.meo.handler.msg.EdgeMsgDto;
 import org.thingai.app.meo.callback.ProvisionEventListener;
 import org.thingai.app.meo.callback.RequestCallback;
 import org.thingai.app.meo.util.JsonUtil;
-import org.thingai.app.meo.util.NetUtil;
 import org.thingai.base.dao.Dao;
 import org.thingai.base.log.ILog;
 
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
-// Gateway-led BLE provisioning. Methods block on blemqtt replies, except
-// setupDevice, which polls for the async gatt.notification Wi-Fi join event.
+import static org.thingai.app.meo.handler.provision.ProvisionBleHelper.*;
+    
 public class MeoProvisionHandler {
     private static final String TAG = "MeoProvisionHandler";
-    private static final String DEFAULT_ENCODING = "utf8";
     private static final String EVENT_GATT_NOTIFICATION = "gatt.notification";
     private static final String STATE_CONNECTED = "connected";
     private static final String STATE_FAILED = "failed";
 
-    // Progress events pushed to the registered listener (the SSE endpoint).
-    public static final String EVENT_PROVISION_STATUS = "provision.status";
-    public static final String EVENT_SCAN_STARTED = "scan.started";
-    public static final String EVENT_SCAN_DEVICE_FOUND = "scan.device_found";
-    public static final String EVENT_SCAN_COMPLETED = "scan.completed";
-    public static final String EVENT_DEVICE_PERSISTED = "device.persisted";
-
-    // Max wait for a terminal Wi-Fi join state after credentials are written.
     private static final long WIFI_JOIN_TIMEOUT_MS = 45_000;
 
-    // Mosquitto default port; broker host is the gateway's LAN IPv4, resolved per call.
-    private static final int DEVICE_BROKER_PORT = 1883;
     // Device-defined cap key: lowercase so keys can't clash by case, safe in topics/URLs.
     private static final Pattern CAP_KEY = Pattern.compile("[a-z0-9_]{1,32}");
 
@@ -113,33 +99,20 @@ public class MeoProvisionHandler {
             params.addProperty("namePrefix", namePrefix);
         }
 
-        emit(EVENT_SCAN_STARTED, params);
+        emit(ProvisionEvent.SCAN_STARTED, params);
         try {
-            BlemqttReply reply = sendBlocking(BlemqttCommand.create(BlemqttOp.SCAN_START, params));
+            BlemqttReply reply = sendBlocking(blemqttClient, BlemqttCommand.create(BlemqttOp.SCAN_START, params));
             JsonObject[] devices = parseScanDevices(reply);
             for (JsonObject device : devices) {
-                emit(EVENT_SCAN_DEVICE_FOUND, device);
+                emit(ProvisionEvent.SCAN_DEVICE_FOUND, device);
             }
             ILog.i(TAG, "scan complete", "count=" + devices.length);
-            emit(EVENT_SCAN_COMPLETED, devices);
+            emit(ProvisionEvent.SCAN_COMPLETED, devices);
             callback.onResult(devices, "scan complete");
         } catch (RuntimeException e) {
             ILog.e(TAG, "scan failed", e);
             callback.onFailure(MeoErr.PROV_SCAN_FAILED, failureMessage(e, "scan failed"));
         }
-    }
-
-    private JsonObject[] parseScanDevices(BlemqttReply reply) {
-        JsonElement result = reply.getResult();
-        if (result == null || !result.isJsonObject()) {
-            return new JsonObject[0];
-        }
-        JsonElement devices = result.getAsJsonObject().get("devices");
-        if (devices == null || !devices.isJsonArray()) {
-            return new JsonObject[0];
-        }
-        JsonObject[] parsed = JsonUtil.fromJson(devices.toString(), JsonObject[].class);
-        return parsed != null ? parsed : new JsonObject[0];
     }
 
     // Connects, reads identity/caps, and opens the session for setupDevice.
@@ -181,7 +154,7 @@ public class MeoProvisionHandler {
             callback.onFailure(MeoErr.PROV_SETUP_FAILED, "wifi ssid is required");
             return;
         }
-        String brokerHost = NetUtil.lanIpv4();
+        String brokerHost = ProvisionConfig.DEFAULT_BROKER_HOST;
         if (isEmpty(brokerHost)) {
             callback.onFailure(MeoErr.PROV_SETUP_FAILED, "cannot determine gateway LAN IPv4");
             return;
@@ -222,10 +195,10 @@ public class MeoProvisionHandler {
         MeoDeviceProvision current = session;
         try {
             MeoDevice device = saveDevice(current);
-            persistCaps(device.getDeviceId(), current.getCaps(), current.getCapTypes());
+            saveDeviceCaps(device.getDeviceId(), current.getCaps(), current.getCapTypes());
             session = null;
             DeviceResponse response = DeviceResponse.of(device, current.getCaps(), current.getCapTypes());
-            emit(EVENT_DEVICE_PERSISTED, response);
+            emit(ProvisionEvent.DEVICE_PERSISTED, response);
             callback.onResult(response, "device persisted");
         } catch (RuntimeException e) {
             ILog.e(TAG, "persistDevice failed", e);
@@ -259,13 +232,13 @@ public class MeoProvisionHandler {
     }
 
     // Upserts the device's cap row so re-provisioning replaces the list, not accumulates.
-    private void persistCaps(String deviceId, String[] caps, int[] capTypes) {
+    private void saveDeviceCaps(String deviceId, String[] caps, int[] capTypes) {
         MeoDeviceCap row = new MeoDeviceCap();
         row.setDeviceId(deviceId);
         row.setCaps(JsonUtil.toJson(caps != null ? caps : new String[0]));
         row.setTypes(JsonUtil.toJson(capTypes != null ? capTypes : new int[0]));
         dao.insertOrUpdate(row);
-        ILog.i(TAG, "persistCaps", "deviceId=" + deviceId, "count=" + (caps != null ? caps.length : 0));
+        ILog.i(TAG, "saveDeviceCaps", "deviceId=" + deviceId, "count=" + (caps != null ? caps.length : 0));
     }
 
     // Sets status/message, then emits the session as a provision.status event.
@@ -274,7 +247,7 @@ public class MeoProvisionHandler {
         if (message != null) {
             provision.setMessage(message);
         }
-        emit(EVENT_PROVISION_STATUS, provision);
+        emit(ProvisionEvent.PROVISION_STATUS, provision);
     }
 
     private void emit(String event, Object payload) {
@@ -293,13 +266,13 @@ public class MeoProvisionHandler {
 
     private void bleConnect(MeoDeviceProvision provision) {
         updateStatus(provision, MeoDevProvisionStatus.STATUS_CONNECTING_BLE, null);
-        sendBlocking(BlemqttCommand.create(BlemqttOp.DEVICE_CONNECT, addressParams(provision)));
+        sendBlocking(blemqttClient, BlemqttCommand.create(BlemqttOp.DEVICE_CONNECT, addressParams(provision)));
         ILog.i(TAG, "connect", "connected", addressLog(provision));
     }
 
     private void readMac(MeoDeviceProvision provision) {
         updateStatus(provision, MeoDevProvisionStatus.STATUS_READING_MAC, null);
-        String mac = readReplyValue(sendBlocking(gattRead(provision, ProvisionBleUuid.MEO_DEVICE_MAC_CHAR)));
+        String mac = readReplyValue(sendBlocking(blemqttClient, gattRead(provision, ProvisionBleUuid.MEO_DEVICE_MAC_CHAR)));
         provision.setMacAddress(mac);
         ILog.i(TAG, "readDeviceMac", "macAddress=" + mac);
     }
@@ -309,7 +282,7 @@ public class MeoProvisionHandler {
     private void readCaps(MeoDeviceProvision provision) {
         updateStatus(provision, MeoDevProvisionStatus.STATUS_READING_CAPABILITIES, null);
         try {
-            String raw = readReplyValue(sendBlocking(gattRead(provision, ProvisionBleUuid.MEO_DEVICE_CAPABILITIES_CHAR)));
+            String raw = readReplyValue(sendBlocking(blemqttClient, gattRead(provision, ProvisionBleUuid.MEO_DEVICE_CAPABILITIES_CHAR)));
             JsonObject report = JsonParser.parseString(raw).getAsJsonObject();
 
             JsonElement model = report.get("model");
@@ -373,7 +346,7 @@ public class MeoProvisionHandler {
     }
 
     private void subscribeStatus(MeoDeviceProvision provision) {
-        sendBlocking(BlemqttCommand.create(BlemqttOp.GATT_SUBSCRIBE, gattParams(provision, ProvisionBleUuid.MEO_PROVISION_STATUS_CHAR)));
+        sendBlocking(blemqttClient, BlemqttCommand.create(BlemqttOp.GATT_SUBSCRIBE, gattParams(provision, ProvisionBleUuid.MEO_PROVISION_STATUS_CHAR)));
         ILog.i(TAG, "subscribeStatus", "subscribed", addressLog(provision));
     }
 
@@ -382,7 +355,7 @@ public class MeoProvisionHandler {
         networkConfig.addProperty("ssid", ssid);
         networkConfig.addProperty("password", password != null ? password : "");
         networkConfig.addProperty("brokerHost", brokerHost);
-        networkConfig.addProperty("brokerPort", DEVICE_BROKER_PORT);
+        networkConfig.addProperty("brokerPort", ProvisionConfig.DEFAULT_BROKER_PORT);
 
         JsonObject params = gattParams(provision, ProvisionBleUuid.MEO_NETWORK_CONFIG_CHAR);
         params.addProperty("encoding", DEFAULT_ENCODING);
@@ -390,10 +363,10 @@ public class MeoProvisionHandler {
 
         provision.setWifiSsid(ssid);
         updateStatus(provision, MeoDevProvisionStatus.STATUS_WRITING_WIFI, null);
-        sendBlocking(BlemqttCommand.create(BlemqttOp.GATT_WRITE, params));
+        sendBlocking(blemqttClient, BlemqttCommand.create(BlemqttOp.GATT_WRITE, params));
         updateStatus(provision, MeoDevProvisionStatus.STATUS_WRITING_WIFI, "network config written");
         ILog.i(TAG, "writeNetworkConfig", "written", "ssid=" + ssid,
-                "broker=" + brokerHost + ":" + DEVICE_BROKER_PORT);
+                "broker=" + brokerHost + ":" + ProvisionConfig.DEFAULT_BROKER_PORT);
     }
 
     // Block until the device reports a terminal Wi-Fi state or the timeout hits.
@@ -417,7 +390,7 @@ public class MeoProvisionHandler {
     // Transport cleanup only — does not touch provisioning status, which persistDevice needs.
     private void safeDisconnect(MeoDeviceProvision provision) {
         try {
-            sendBlocking(BlemqttCommand.create(BlemqttOp.DEVICE_DISCONNECT, addressParams(provision)));
+            sendBlocking(blemqttClient, BlemqttCommand.create(BlemqttOp.DEVICE_DISCONNECT, addressParams(provision)));
             ILog.i(TAG, "disconnect", "disconnected", addressLog(provision));
         } catch (RuntimeException e) {
             ILog.w(TAG, "disconnect failed", e);
@@ -447,7 +420,7 @@ public class MeoProvisionHandler {
         provision.setProvisionStatus(state);
         provision.setMessage(state);
         ILog.i(TAG, "status", state, addressLog(provision));
-        emit(EVENT_PROVISION_STATUS, provision);
+        emit(ProvisionEvent.PROVISION_STATUS, provision);
 
         if (STATE_CONNECTED.equalsIgnoreCase(state)) {
             terminalState.offer(Boolean.TRUE);
@@ -456,61 +429,7 @@ public class MeoProvisionHandler {
         }
     }
 
-    // --- blemqtt helpers ------------------------------------------------------
-
-    // Blocks for the reply; throws on failure. blemqtt applies its own request timeout.
-    private BlemqttReply sendBlocking(BlemqttCommand command) {
-        ILog.d(TAG, "send", command.getOp(), command.getRequestId());
-        try {
-            BlemqttReply reply = blemqttClient.send(command).get();
-            if (!reply.isOk()) {
-                throw toException(reply);
-            }
-            return reply;
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("interrupted while sending " + command.getOp(), e);
-        } catch (ExecutionException e) {
-            Throwable cause = e.getCause() != null ? e.getCause() : e;
-            throw cause instanceof RuntimeException ? (RuntimeException) cause : new RuntimeException(cause);
-        }
-    }
-
-    private BlemqttCommand gattRead(MeoDeviceProvision provision, String characteristicUuid) {
-        JsonObject params = gattParams(provision, characteristicUuid);
-        params.addProperty("encoding", DEFAULT_ENCODING);
-        return BlemqttCommand.create(BlemqttOp.GATT_READ, params);
-    }
-
-    private JsonObject gattParams(MeoDeviceProvision provision, String characteristicUuid) {
-        JsonObject params = addressParams(provision);
-        params.addProperty("serviceUuid", ProvisionBleUuid.MEO_DEVICE_PROVISION_SERVICE);
-        params.addProperty("characteristicUuid", characteristicUuid);
-        return params;
-    }
-
-    private JsonObject addressParams(MeoDeviceProvision provision) {
-        JsonObject params = new JsonObject();
-        params.addProperty("address", provision.getBleAddress());
-        return params;
-    }
-
-    private RuntimeException toException(BlemqttReply reply) {
-        BlemqttError error = reply.getError();
-        if (error == null) {
-            return new RuntimeException("blemqtt command failed");
-        }
-        return new RuntimeException(error.getCode() + ": " + error.getMessage());
-    }
-
-    // True if field is absent or equals expected (case-insensitive); absent = not a mismatch.
-    private boolean matches(JsonObject object, String field, String expected) {
-        JsonElement value = object.get(field);
-        if (value == null || value.isJsonNull() || expected == null) {
-            return true;
-        }
-        return expected.equalsIgnoreCase(value.getAsString());
-    }
+    // --- Helpers --------------------------------------------------------------
 
     private String extractState(JsonElement valueElement) {
         if (valueElement == null || valueElement.isJsonNull()) {
@@ -525,29 +444,6 @@ public class MeoProvisionHandler {
             ILog.w(TAG, "extractState", "unparsable status value", valueElement.toString());
             return null;
         }
-    }
-
-    private String readReplyValue(BlemqttReply reply) {
-        JsonElement result = reply.getResult();
-        if (result == null || result.isJsonNull()) {
-            return "";
-        }
-        if (result.isJsonPrimitive()) {
-            return result.getAsString();
-        }
-        if (!result.isJsonObject()) {
-            return result.toString();
-        }
-
-        JsonObject object = result.getAsJsonObject();
-        String[] fields = {"value", "macAddress", "mac", "status", "state", "message"};
-        for (String field : fields) {
-            JsonElement value = object.get(field);
-            if (value != null && !value.isJsonNull()) {
-                return value.isJsonPrimitive() ? value.getAsString() : value.toString();
-            }
-        }
-        return object.toString();
     }
 
     // AA:BB:CC:DD:EE:FF -> aabbccddeeff, the form firmware uses in MQTT topics.
